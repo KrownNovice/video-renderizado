@@ -28,7 +28,6 @@ function executar(comando, args) {
       const texto = data.toString();
 
       erro += texto;
-
       console.log(texto);
     });
 
@@ -159,12 +158,12 @@ async function obterDuracaoAudio(audio) {
 
 /*
 |--------------------------------------------------------------------------
-| Extensão da imagem
+| Descobrir extensão da imagem
 |--------------------------------------------------------------------------
 */
 
 function descobrirExtensao(url) {
-  const limpa = url
+  const limpa = String(url)
     .split("?")[0]
     .toLowerCase();
 
@@ -183,16 +182,106 @@ function descobrirExtensao(url) {
     return "webp";
   }
 
-  /*
-   * Caso não seja possível identificar,
-   * usamos WEBP como padrão.
-   */
   return "webp";
 }
 
 /*
 |--------------------------------------------------------------------------
-| Rota inicial
+| Legendas
+|--------------------------------------------------------------------------
+*/
+
+function formatarTempoASS(segundos) {
+  const total = Math.max(
+    0,
+    Math.round(Number(segundos) * 100)
+  );
+
+  const horas = Math.floor(total / 360000);
+
+  const minutos = Math.floor(
+    (total % 360000) / 6000
+  );
+
+  const segundosInteiros = Math.floor(
+    (total % 6000) / 100
+  );
+
+  const centesimos = total % 100;
+
+  return `${horas}:${String(minutos).padStart(
+    2,
+    "0"
+  )}:${String(segundosInteiros).padStart(
+    2,
+    "0"
+  )}.${String(centesimos).padStart(2, "0")}`;
+}
+
+function escaparTextoASS(texto) {
+  return String(texto || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/{/g, "\\{")
+    .replace(/}/g, "\\}")
+    .replace(/\r?\n/g, "\\N");
+}
+
+function criarArquivoLegendaASS(
+  legendas,
+  destino
+) {
+  const cabecalho = `[Script Info]
+Title: Legendas TikTok
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
+Style: TikTok,DejaVu Sans,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,1,2,80,80,300,1
+
+[Events]
+Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
+
+  const eventos = legendas
+    .filter(
+      (item) =>
+        item &&
+        item.texto &&
+        Number(item.fim) >
+          Number(item.inicio)
+    )
+    .map((item) => {
+      const inicio =
+        formatarTempoASS(item.inicio);
+
+      const fim =
+        formatarTempoASS(item.fim);
+
+      const texto =
+        escaparTextoASS(item.texto);
+
+      return `Dialogue: 0,${inicio},${fim},TikTok,,0,0,0,,${texto}`;
+    })
+    .join("\n");
+
+  fs.writeFileSync(
+    destino,
+    `${cabecalho}\n${eventos}`,
+    "utf8"
+  );
+
+  console.log(
+    "Arquivo de legenda criado:",
+    destino
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Página inicial
 |--------------------------------------------------------------------------
 */
 
@@ -201,12 +290,13 @@ app.get("/", (req, res) => {
     status: "online",
     servico: "video-renderizado",
     ffmpeg: true,
+    legendas: true,
   });
 });
 
 /*
 |--------------------------------------------------------------------------
-| Health check
+| Health Check
 |--------------------------------------------------------------------------
 */
 
@@ -233,12 +323,15 @@ app.post("/render", async (req, res) => {
   });
 
   try {
-    console.log("Nova renderização recebida.");
+    console.log(
+      "Nova renderização recebida."
+    );
 
     const {
       id,
       imagens,
       audio,
+      legendas = [],
     } = req.body;
 
     /*
@@ -269,7 +362,18 @@ app.post("/render", async (req, res) => {
     }
 
     console.log("ID:", id);
-    console.log("Quantidade imagens:", imagens.length);
+
+    console.log(
+      "Quantidade de imagens:",
+      imagens.length
+    );
+
+    console.log(
+      "Quantidade de legendas:",
+      Array.isArray(legendas)
+        ? legendas.length
+        : 0
+    );
 
     /*
     |--------------------------------------------------------------------------
@@ -277,8 +381,10 @@ app.post("/render", async (req, res) => {
     |--------------------------------------------------------------------------
     */
 
-    const audioPath =
-      path.join(pasta, "audio.mp3");
+    const audioPath = path.join(
+      pasta,
+      "audio.mp3"
+    );
 
     await baixarArquivo(
       audio,
@@ -316,7 +422,7 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Obter duração do áudio
+    | Duração do áudio
     |--------------------------------------------------------------------------
     */
 
@@ -345,23 +451,19 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Criar arquivo concat
+    | Arquivo concat
     |--------------------------------------------------------------------------
     */
 
-    const concatPath =
-      path.join(
-        pasta,
-        "imagens.txt"
-      );
+    const concatPath = path.join(
+      pasta,
+      "imagens.txt"
+    );
 
     let concat = "";
 
     imagensLocais.forEach(
       (imagem) => {
-        /*
-         * Caminho escapado para concat do FFmpeg
-         */
         const imagemEscapada =
           imagem.replace(
             /'/g,
@@ -376,10 +478,6 @@ app.post("/render", async (req, res) => {
       }
     );
 
-    /*
-     * O FFmpeg concat precisa repetir
-     * a última imagem.
-     */
     const ultimaImagem =
       imagensLocais[
         imagensLocais.length - 1
@@ -393,8 +491,42 @@ app.post("/render", async (req, res) => {
 
     fs.writeFileSync(
       concatPath,
-      concat
+      concat,
+      "utf8"
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Criar legenda
+    |--------------------------------------------------------------------------
+    */
+
+    const legendaPath = path.join(
+      pasta,
+      "legendas.ass"
+    );
+
+    let filtroVideo = [
+      "scale=1080:1920:force_original_aspect_ratio=decrease",
+      "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black",
+      "fps=24",
+    ].join(",");
+
+    if (
+      Array.isArray(legendas) &&
+      legendas.length > 0
+    ) {
+      criarArquivoLegendaASS(
+        legendas,
+        legendaPath
+      );
+
+      filtroVideo +=
+        `,subtitles=${legendaPath}`;
+    }
+
+    filtroVideo +=
+      ",format=yuv420p";
 
     /*
     |--------------------------------------------------------------------------
@@ -402,31 +534,24 @@ app.post("/render", async (req, res) => {
     |--------------------------------------------------------------------------
     */
 
-    const outputPath =
-      path.join(
-        pasta,
-        `${id}.mp4`
-      );
+    const outputPath = path.join(
+      pasta,
+      `${id}.mp4`
+    );
 
     /*
     |--------------------------------------------------------------------------
     | FFmpeg
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANTE:
-    |
-    | - 1080x1920
-    | - 24 fps
-    | - somente 2 threads
-    | - preset ultrafast
-    |
-    | Isso reduz bastante o consumo
-    | de memória/CPU no Railway.
-    |
     */
 
     console.log(
       "Iniciando FFmpeg..."
+    );
+
+    console.log(
+      "Filtro:",
+      filtroVideo
     );
 
     await executar(
@@ -447,19 +572,13 @@ app.post("/render", async (req, res) => {
         audioPath,
 
         /*
-         * Mantém a foto inteira.
-         * Coloca bordas quando necessário.
+         * Vídeo + legenda
          */
         "-vf",
-        [
-          "scale=1080:1920:force_original_aspect_ratio=decrease",
-          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-          "fps=24",
-          "format=yuv420p",
-        ].join(","),
+        filtroVideo,
 
         /*
-         * Vídeo
+         * Codec de vídeo
          */
         "-c:v",
         "libx264",
@@ -486,13 +605,12 @@ app.post("/render", async (req, res) => {
         "128k",
 
         /*
-         * Finalizar junto com áudio
+         * Termina junto com o áudio
          */
         "-shortest",
 
         /*
-         * Melhor compatibilidade
-         * com redes sociais.
+         * Compatibilidade
          */
         "-movflags",
         "+faststart",
@@ -507,7 +625,7 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Validar arquivo
+    | Validar vídeo
     |--------------------------------------------------------------------------
     */
 
@@ -515,7 +633,7 @@ app.post("/render", async (req, res) => {
       !fs.existsSync(outputPath)
     ) {
       throw new Error(
-        "FFmpeg terminou mas o MP4 não foi encontrado."
+        "FFmpeg terminou, mas o MP4 não foi encontrado."
       );
     }
 
@@ -532,7 +650,7 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Responder MP4
+    | Retornar MP4
     |--------------------------------------------------------------------------
     */
 
@@ -558,13 +676,8 @@ app.post("/render", async (req, res) => {
 
     stream.pipe(res);
 
-    stream.on(
-      "close",
-      () => {
-        console.log(
-          "Download concluído."
-        );
-
+    const limparPasta = () => {
+      try {
         fs.rmSync(
           pasta,
           {
@@ -572,7 +685,21 @@ app.post("/render", async (req, res) => {
             force: true,
           }
         );
+
+        console.log(
+          "Arquivos temporários removidos."
+        );
+      } catch (error) {
+        console.log(
+          "Erro ao limpar pasta temporária:",
+          error.message
+        );
       }
+    };
+
+    stream.on(
+      "close",
+      limparPasta
     );
 
   } catch (error) {
