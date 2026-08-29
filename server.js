@@ -184,7 +184,7 @@ function descobrirExtensao(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Legendas ASS
+| Tempo ASS
 |--------------------------------------------------------------------------
 */
 
@@ -223,12 +223,28 @@ function escaparTextoASS(texto) {
     .replace(/\r?\n/g, "\\N");
 }
 
-function criarArquivoLegendaASS(
-  legendas,
+/*
+|--------------------------------------------------------------------------
+| Criar legenda dinâmica estilo TikTok
+|--------------------------------------------------------------------------
+*/
+
+function criarLegendaTikTok(
+  palavras,
   destino
 ) {
+  const palavrasPorGrupo = 4;
+
+  const validas = palavras.filter(
+    (item) =>
+      item &&
+      item.palavra &&
+      Number(item.fim) >
+        Number(item.inicio)
+  );
+
   const cabecalho = `[Script Info]
-Title: Legendas TikTok
+Title: TikTok Dynamic Captions
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -237,47 +253,89 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: TikTok,DejaVu Sans,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,6,1,2,80,80,300,1
+Style: TikTok,DejaVu Sans,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,6,2,2,80,80,360,1
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
-  const eventos = legendas
-    .filter(
-      (item) =>
-        item &&
-        item.texto &&
-        Number(item.fim) > Number(item.inicio)
-    )
-    .map((item) => {
+  const eventos = validas.map(
+    (item, index) => {
       const inicio =
         formatarTempoASS(item.inicio);
 
       const fim =
         formatarTempoASS(item.fim);
 
-      const texto =
-        escaparTextoASS(item.texto);
+      const grupoInicio =
+        Math.floor(
+          index / palavrasPorGrupo
+        ) * palavrasPorGrupo;
 
-      return `Dialogue: 0,${inicio},${fim},TikTok,,0,0,0,,${texto}`;
-    })
-    .join("\n");
+      const grupo = validas.slice(
+        grupoInicio,
+        grupoInicio +
+          palavrasPorGrupo
+      );
+
+      const textoGrupo = grupo
+        .map((palavraItem, posicao) => {
+          const indiceGlobal =
+            grupoInicio + posicao;
+
+          const palavra =
+            escaparTextoASS(
+              String(
+                palavraItem.palavra
+              ).toUpperCase()
+            );
+
+          /*
+           * Palavra que está sendo falada:
+           * amarela + maior + efeito pop.
+           */
+          if (
+            indiceGlobal === index
+          ) {
+            return (
+              "{\\c&H0000FFFF&" +
+              "\\fs90" +
+              "\\fscx108\\fscy108" +
+              "\\t(0,120,\\fscx118\\fscy118)" +
+              "\\t(120,260,\\fscx108\\fscy108)" +
+              "}" +
+              palavra +
+              "{\\rTikTok}"
+            );
+          }
+
+          return palavra;
+        })
+        .join(" ");
+
+      return `Dialogue: 0,${inicio},${fim},TikTok,,0,0,0,,${textoGrupo}`;
+    }
+  );
 
   fs.writeFileSync(
     destino,
-    `${cabecalho}\n${eventos}`,
+    `${cabecalho}\n${eventos.join("\n")}`,
     "utf8"
   );
 
   console.log(
-    "Legenda ASS criada:",
+    "Legenda TikTok criada:",
     destino
+  );
+
+  console.log(
+    "Quantidade de palavras:",
+    validas.length
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| Rotas
+| Página inicial
 |--------------------------------------------------------------------------
 */
 
@@ -286,8 +344,8 @@ app.get("/", (req, res) => {
     status: "online",
     servico: "video-renderizado",
     ffmpeg: true,
-    legendas: true,
-    renderizacao: "duas-etapas",
+    legenda: "tiktok-palavra-por-palavra",
+    versao: "3.0",
   });
 });
 
@@ -314,13 +372,15 @@ app.post("/render", async (req, res) => {
   });
 
   try {
-    console.log("Nova renderização recebida.");
+    console.log(
+      "Nova renderização recebida."
+    );
 
     const {
       id,
       imagens,
       audio,
-      legendas = [],
+      palavras = [],
     } = req.body;
 
     /*
@@ -340,7 +400,8 @@ app.post("/render", async (req, res) => {
       imagens.length === 0
     ) {
       return res.status(400).json({
-        erro: "Nenhuma imagem informada",
+        erro:
+          "Nenhuma imagem informada",
       });
     }
 
@@ -351,14 +412,16 @@ app.post("/render", async (req, res) => {
     }
 
     console.log("ID:", id);
+
     console.log(
-      "Imagens:",
+      "Quantidade de imagens:",
       imagens.length
     );
+
     console.log(
-      "Legendas:",
-      Array.isArray(legendas)
-        ? legendas.length
+      "Quantidade de palavras:",
+      Array.isArray(palavras)
+        ? palavras.length
         : 0
     );
 
@@ -392,7 +455,9 @@ app.post("/render", async (req, res) => {
       i++
     ) {
       const extensao =
-        descobrirExtensao(imagens[i]);
+        descobrirExtensao(
+          imagens[i]
+        );
 
       const destino = path.join(
         pasta,
@@ -404,17 +469,21 @@ app.post("/render", async (req, res) => {
         destino
       );
 
-      imagensLocais.push(destino);
+      imagensLocais.push(
+        destino
+      );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Duração
+    | Duração do áudio
     |--------------------------------------------------------------------------
     */
 
     const duracaoAudio =
-      await obterDuracaoAudio(audioPath);
+      await obterDuracaoAudio(
+        audioPath
+      );
 
     const duracaoImagem =
       duracaoAudio /
@@ -432,7 +501,7 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Arquivo concat
+    | Criar concat
     |--------------------------------------------------------------------------
     */
 
@@ -479,18 +548,15 @@ app.post("/render", async (req, res) => {
     /*
     |--------------------------------------------------------------------------
     | ETAPA 1
-    | Renderização BASE
+    | Criar vídeo base
     |--------------------------------------------------------------------------
-    |
-    | Esta é a mesma lógica que já estava
-    | funcionando antes das legendas.
-    |
     */
 
-    const videoBasePath = path.join(
-      pasta,
-      `${id}-base.mp4`
-    );
+    const videoBasePath =
+      path.join(
+        pasta,
+        `${id}-base.mp4`
+      );
 
     console.log(
       "ETAPA 1: criando vídeo base..."
@@ -514,7 +580,7 @@ app.post("/render", async (req, res) => {
         audioPath,
 
         "-vf",
-        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=24,format=yuv420p",
+        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=24,format=yuv420p",
 
         "-c:v",
         "libx264",
@@ -547,7 +613,9 @@ app.post("/render", async (req, res) => {
     );
 
     if (
-      !fs.existsSync(videoBasePath)
+      !fs.existsSync(
+        videoBasePath
+      )
     ) {
       throw new Error(
         "Vídeo base não foi criado."
@@ -572,26 +640,31 @@ app.post("/render", async (req, res) => {
     /*
     |--------------------------------------------------------------------------
     | ETAPA 2
-    | Aplicar legenda
+    | Aplicar legenda dinâmica
     |--------------------------------------------------------------------------
     */
 
     if (
-      Array.isArray(legendas) &&
-      legendas.length > 0
+      Array.isArray(palavras) &&
+      palavras.length > 0
     ) {
       console.log(
-        "ETAPA 2: aplicando legendas..."
+        "ETAPA 2: criando legenda TikTok..."
       );
 
-      const legendaPath = path.join(
-        pasta,
-        "legendas.ass"
-      );
+      const legendaPath =
+        path.join(
+          pasta,
+          "legendas.ass"
+        );
 
-      criarArquivoLegendaASS(
-        legendas,
+      criarLegendaTikTok(
+        palavras,
         legendaPath
+      );
+
+      console.log(
+        "ETAPA 2: aplicando legenda..."
       );
 
       await executar(
@@ -603,7 +676,7 @@ app.post("/render", async (req, res) => {
           videoBasePath,
 
           "-vf",
-          `subtitles=${legendaPath}`,
+          `subtitles='${legendaPath}'`,
 
           "-c:v",
           "libx264",
@@ -631,23 +704,19 @@ app.post("/render", async (req, res) => {
         "ETAPA 2 concluída."
       );
     } else {
-      /*
-       * Sem legenda:
-       * usa o vídeo base como vídeo final.
-       */
+      console.log(
+        "Nenhuma palavra recebida."
+      );
+
       fs.copyFileSync(
         videoBasePath,
         outputPath
-      );
-
-      console.log(
-        "Nenhuma legenda recebida."
       );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Validar MP4
+    | Validar vídeo final
     |--------------------------------------------------------------------------
     */
 
@@ -672,7 +741,7 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Retornar arquivo
+    | Responder MP4
     |--------------------------------------------------------------------------
     */
 
