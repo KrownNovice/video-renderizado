@@ -26,14 +26,11 @@ function executar(comando, args) {
 
     processo.stderr.on("data", (data) => {
       const texto = data.toString();
-
       erro += texto;
       console.log(texto);
     });
 
-    processo.on("error", (error) => {
-      reject(error);
-    });
+    processo.on("error", reject);
 
     processo.on("close", (code) => {
       if (code === 0) {
@@ -51,7 +48,7 @@ function executar(comando, args) {
 
 /*
 |--------------------------------------------------------------------------
-| Converter links do Google Drive
+| Google Drive
 |--------------------------------------------------------------------------
 */
 
@@ -75,7 +72,7 @@ function normalizarGoogleDrive(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Baixar arquivos
+| Download
 |--------------------------------------------------------------------------
 */
 
@@ -107,7 +104,7 @@ async function baixarArquivo(url, destino) {
 
 /*
 |--------------------------------------------------------------------------
-| Descobrir duração do áudio
+| Duração do áudio
 |--------------------------------------------------------------------------
 */
 
@@ -158,7 +155,7 @@ async function obterDuracaoAudio(audio) {
 
 /*
 |--------------------------------------------------------------------------
-| Descobrir extensão da imagem
+| Extensão das imagens
 |--------------------------------------------------------------------------
 */
 
@@ -187,7 +184,7 @@ function descobrirExtensao(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Legendas
+| Legendas ASS
 |--------------------------------------------------------------------------
 */
 
@@ -240,7 +237,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: TikTok,DejaVu Sans,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,1,2,80,80,300,1
+Style: TikTok,DejaVu Sans,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,6,1,2,80,80,300,1
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
@@ -250,8 +247,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       (item) =>
         item &&
         item.texto &&
-        Number(item.fim) >
-          Number(item.inicio)
+        Number(item.fim) > Number(item.inicio)
     )
     .map((item) => {
       const inicio =
@@ -274,14 +270,14 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
   );
 
   console.log(
-    "Arquivo de legenda criado:",
+    "Legenda ASS criada:",
     destino
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| Página inicial
+| Rotas
 |--------------------------------------------------------------------------
 */
 
@@ -291,14 +287,9 @@ app.get("/", (req, res) => {
     servico: "video-renderizado",
     ffmpeg: true,
     legendas: true,
+    renderizacao: "duas-etapas",
   });
 });
-
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
 
 app.get("/health", (req, res) => {
   res.json({
@@ -308,7 +299,7 @@ app.get("/health", (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| Renderizar vídeo
+| Render
 |--------------------------------------------------------------------------
 */
 
@@ -323,9 +314,7 @@ app.post("/render", async (req, res) => {
   });
 
   try {
-    console.log(
-      "Nova renderização recebida."
-    );
+    console.log("Nova renderização recebida.");
 
     const {
       id,
@@ -362,14 +351,12 @@ app.post("/render", async (req, res) => {
     }
 
     console.log("ID:", id);
-
     console.log(
-      "Quantidade de imagens:",
+      "Imagens:",
       imagens.length
     );
-
     console.log(
-      "Quantidade de legendas:",
+      "Legendas:",
       Array.isArray(legendas)
         ? legendas.length
         : 0
@@ -422,30 +409,24 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Duração do áudio
+    | Duração
     |--------------------------------------------------------------------------
     */
 
     const duracaoAudio =
       await obterDuracaoAudio(audioPath);
 
-    console.log(
-      "Duração do áudio:",
-      duracaoAudio
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tempo de cada imagem
-    |--------------------------------------------------------------------------
-    */
-
     const duracaoImagem =
       duracaoAudio /
       imagensLocais.length;
 
     console.log(
-      "Tempo por imagem:",
+      "Duração áudio:",
+      duracaoAudio
+    );
+
+    console.log(
+      "Duração por imagem:",
       duracaoImagem
     );
 
@@ -497,61 +478,22 @@ app.post("/render", async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | Criar legenda
+    | ETAPA 1
+    | Renderização BASE
     |--------------------------------------------------------------------------
+    |
+    | Esta é a mesma lógica que já estava
+    | funcionando antes das legendas.
+    |
     */
 
-    const legendaPath = path.join(
+    const videoBasePath = path.join(
       pasta,
-      "legendas.ass"
-    );
-
-    let filtroVideo = [
-      "scale=1080:1920:force_original_aspect_ratio=decrease",
-      "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black",
-      "fps=24",
-    ].join(",");
-
-    if (
-      Array.isArray(legendas) &&
-      legendas.length > 0
-    ) {
-      criarArquivoLegendaASS(
-        legendas,
-        legendaPath
-      );
-
-      filtroVideo +=
-        `,subtitles=${legendaPath}`;
-    }
-
-    filtroVideo +=
-      ",format=yuv420p";
-
-    /*
-    |--------------------------------------------------------------------------
-    | Arquivo final
-    |--------------------------------------------------------------------------
-    */
-
-    const outputPath = path.join(
-      pasta,
-      `${id}.mp4`
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | FFmpeg
-    |--------------------------------------------------------------------------
-    */
-
-    console.log(
-      "Iniciando FFmpeg..."
+      `${id}-base.mp4`
     );
 
     console.log(
-      "Filtro:",
-      filtroVideo
+      "ETAPA 1: criando vídeo base..."
     );
 
     await executar(
@@ -571,15 +513,9 @@ app.post("/render", async (req, res) => {
         "-i",
         audioPath,
 
-        /*
-         * Vídeo + legenda
-         */
         "-vf",
-        filtroVideo,
+        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=24,format=yuv420p",
 
-        /*
-         * Codec de vídeo
-         */
         "-c:v",
         "libx264",
 
@@ -592,9 +528,6 @@ app.post("/render", async (req, res) => {
         "-threads",
         "2",
 
-        /*
-         * Áudio
-         */
         "-c:a",
         "aac",
 
@@ -604,28 +537,117 @@ app.post("/render", async (req, res) => {
         "-b:a",
         "128k",
 
-        /*
-         * Termina junto com o áudio
-         */
         "-shortest",
 
-        /*
-         * Compatibilidade
-         */
         "-movflags",
         "+faststart",
 
-        outputPath,
+        videoBasePath,
       ]
     );
 
+    if (
+      !fs.existsSync(videoBasePath)
+    ) {
+      throw new Error(
+        "Vídeo base não foi criado."
+      );
+    }
+
     console.log(
-      "FFmpeg terminou."
+      "ETAPA 1 concluída."
     );
 
     /*
     |--------------------------------------------------------------------------
-    | Validar vídeo
+    | Arquivo final
+    |--------------------------------------------------------------------------
+    */
+
+    const outputPath = path.join(
+      pasta,
+      `${id}.mp4`
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | ETAPA 2
+    | Aplicar legenda
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      Array.isArray(legendas) &&
+      legendas.length > 0
+    ) {
+      console.log(
+        "ETAPA 2: aplicando legendas..."
+      );
+
+      const legendaPath = path.join(
+        pasta,
+        "legendas.ass"
+      );
+
+      criarArquivoLegendaASS(
+        legendas,
+        legendaPath
+      );
+
+      await executar(
+        "ffmpeg",
+        [
+          "-y",
+
+          "-i",
+          videoBasePath,
+
+          "-vf",
+          `subtitles=${legendaPath}`,
+
+          "-c:v",
+          "libx264",
+
+          "-preset",
+          "veryfast",
+
+          "-crf",
+          "23",
+
+          "-threads",
+          "2",
+
+          "-c:a",
+          "copy",
+
+          "-movflags",
+          "+faststart",
+
+          outputPath,
+        ]
+      );
+
+      console.log(
+        "ETAPA 2 concluída."
+      );
+    } else {
+      /*
+       * Sem legenda:
+       * usa o vídeo base como vídeo final.
+       */
+      fs.copyFileSync(
+        videoBasePath,
+        outputPath
+      );
+
+      console.log(
+        "Nenhuma legenda recebida."
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validar MP4
     |--------------------------------------------------------------------------
     */
 
@@ -633,7 +655,7 @@ app.post("/render", async (req, res) => {
       !fs.existsSync(outputPath)
     ) {
       throw new Error(
-        "FFmpeg terminou, mas o MP4 não foi encontrado."
+        "MP4 final não foi criado."
       );
     }
 
@@ -643,14 +665,14 @@ app.post("/render", async (req, res) => {
       ).size;
 
     console.log(
-      "Vídeo criado:",
+      "Vídeo final:",
       tamanho,
       "bytes"
     );
 
     /*
     |--------------------------------------------------------------------------
-    | Retornar MP4
+    | Retornar arquivo
     |--------------------------------------------------------------------------
     */
 
@@ -676,30 +698,23 @@ app.post("/render", async (req, res) => {
 
     stream.pipe(res);
 
-    const limparPasta = () => {
-      try {
-        fs.rmSync(
-          pasta,
-          {
-            recursive: true,
-            force: true,
-          }
-        );
+    stream.on(
+      "close",
+      () => {
+        try {
+          fs.rmSync(
+            pasta,
+            {
+              recursive: true,
+              force: true,
+            }
+          );
+        } catch {}
 
         console.log(
           "Arquivos temporários removidos."
         );
-      } catch (error) {
-        console.log(
-          "Erro ao limpar pasta temporária:",
-          error.message
-        );
       }
-    };
-
-    stream.on(
-      "close",
-      limparPasta
     );
 
   } catch (error) {
@@ -732,7 +747,7 @@ app.post("/render", async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| Iniciar servidor
+| Servidor
 |--------------------------------------------------------------------------
 */
 
