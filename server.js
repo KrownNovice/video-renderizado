@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 
 /*
 |--------------------------------------------------------------------------
-| Executar comandos
+| Executar FFmpeg / FFprobe
 |--------------------------------------------------------------------------
 */
 
@@ -52,7 +52,7 @@ function executar(comando, args) {
 
 /*
 |--------------------------------------------------------------------------
-| Google Drive
+| Normalizar Google Drive
 |--------------------------------------------------------------------------
 */
 
@@ -79,24 +79,34 @@ function normalizarGoogleDrive(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Baixar arquivo
+| Download
 |--------------------------------------------------------------------------
 */
 
 async function baixarArquivo(url, destino) {
-  const urlFinal = normalizarGoogleDrive(url);
+  const urlFinal =
+    normalizarGoogleDrive(url);
 
-  console.log("Baixando:", urlFinal);
+  console.log(
+    "Baixando:",
+    urlFinal
+  );
 
   const resposta = await axios({
     method: "GET",
+
     url: urlFinal,
-    responseType: "arraybuffer",
+
+    responseType:
+      "arraybuffer",
+
     maxRedirects: 10,
+
     timeout: 60000,
 
     headers: {
-      "User-Agent": "Mozilla/5.0",
+      "User-Agent":
+        "Mozilla/5.0",
     },
   });
 
@@ -116,78 +126,89 @@ async function baixarArquivo(url, destino) {
 
 /*
 |--------------------------------------------------------------------------
-| Descobrir duração do áudio
+| Duração
 |--------------------------------------------------------------------------
 */
 
-function obterDuracaoAudio(audio) {
-  return new Promise((resolve, reject) => {
-    const processo = spawn(
-      "ffprobe",
-      [
-        "-v",
-        "error",
+function obterDuracao(arquivo) {
+  return new Promise(
+    (resolve, reject) => {
 
-        "-show_entries",
-        "format=duration",
+      const processo =
+        spawn(
+          "ffprobe",
+          [
+            "-v",
+            "error",
 
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
+            "-show_entries",
+            "format=duration",
 
-        audio,
-      ]
-    );
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
 
-    let resultado = "";
-    let erro = "";
+            arquivo,
+          ]
+        );
 
-    processo.stdout.on(
-      "data",
-      (data) => {
-        resultado += data.toString();
-      }
-    );
+      let resultado = "";
+      let erro = "";
 
-    processo.stderr.on(
-      "data",
-      (data) => {
-        erro += data.toString();
-      }
-    );
-
-    processo.on(
-      "close",
-      (code) => {
-        if (code !== 0) {
-          reject(
-            new Error(erro)
-          );
-
-          return;
+      processo.stdout.on(
+        "data",
+        (data) => {
+          resultado +=
+            data.toString();
         }
+      );
 
-        const duracao =
-          parseFloat(
-            resultado.trim()
-          );
+      processo.stderr.on(
+        "data",
+        (data) => {
+          erro +=
+            data.toString();
+        }
+      );
 
-        if (
-          !duracao ||
-          Number.isNaN(duracao)
-        ) {
-          reject(
-            new Error(
-              "Não foi possível descobrir a duração do áudio."
+      processo.on(
+        "close",
+        (code) => {
+
+          if (code !== 0) {
+            reject(
+              new Error(erro)
+            );
+
+            return;
+          }
+
+          const duracao =
+            parseFloat(
+              resultado.trim()
+            );
+
+          if (
+            !duracao ||
+            Number.isNaN(
+              duracao
             )
+          ) {
+            reject(
+              new Error(
+                "Não foi possível descobrir a duração."
+              )
+            );
+
+            return;
+          }
+
+          resolve(
+            duracao
           );
-
-          return;
         }
-
-        resolve(duracao);
-      }
-    );
-  });
+      );
+    }
+  );
 }
 
 
@@ -198,22 +219,35 @@ function obterDuracaoAudio(audio) {
 */
 
 function descobrirExtensao(url) {
-  const limpa = String(url)
-    .split("?")[0]
-    .toLowerCase();
+  const limpa =
+    String(url)
+      .split("?")[0]
+      .toLowerCase();
 
-  if (limpa.endsWith(".png")) {
+  if (
+    limpa.endsWith(
+      ".png"
+    )
+  ) {
     return "png";
   }
 
   if (
-    limpa.endsWith(".jpg") ||
-    limpa.endsWith(".jpeg")
+    limpa.endsWith(
+      ".jpg"
+    ) ||
+    limpa.endsWith(
+      ".jpeg"
+    )
   ) {
     return "jpg";
   }
 
-  if (limpa.endsWith(".webp")) {
+  if (
+    limpa.endsWith(
+      ".webp"
+    )
+  ) {
     return "webp";
   }
 
@@ -227,28 +261,41 @@ function descobrirExtensao(url) {
 |--------------------------------------------------------------------------
 */
 
-function formatarTempoASS(segundos) {
-  const total = Math.max(
-    0,
-    Math.round(
-      Number(segundos) * 100
-    )
-  );
+function formatarTempoASS(
+  segundos
+) {
+
+  const total =
+    Math.max(
+      0,
+      Math.round(
+        Number(
+          segundos
+        ) * 100
+      )
+    );
 
   const horas =
     Math.floor(
-      total / 360000
+      total /
+        360000
     );
 
   const minutos =
     Math.floor(
-      (total % 360000) /
+      (
+        total %
+        360000
+      ) /
         6000
     );
 
   const segundosInteiros =
     Math.floor(
-      (total % 6000) /
+      (
+        total %
+        6000
+      ) /
         100
     );
 
@@ -280,8 +327,13 @@ function formatarTempoASS(segundos) {
 |--------------------------------------------------------------------------
 */
 
-function escaparTextoASS(texto) {
-  return String(texto || "")
+function escaparTextoASS(
+  texto
+) {
+
+  return String(
+    texto || ""
+  )
     .replace(
       /\\/g,
       "\\\\"
@@ -303,13 +355,17 @@ function escaparTextoASS(texto) {
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda TikTok
+| Criar legenda
 |--------------------------------------------------------------------------
 |
-| - Usa timestamps REAIS da OpenAI
-| - 4 palavras ficam visíveis
-| - Palavra atual fica amarela e maior
-| - Cada palavra tem seu próprio evento
+| 4 palavras por bloco.
+|
+| A palavra atual:
+| - amarela
+| - maior
+|
+| Os timestamps vêm diretamente
+| da OpenAI.
 |
 |--------------------------------------------------------------------------
 */
@@ -318,50 +374,65 @@ function criarLegendaTikTok(
   palavras,
   destino
 ) {
-  const palavrasPorGrupo = 4;
 
-  const validas = palavras
-    .filter(
-      (item) =>
-        item &&
-        item.palavra &&
-        Number.isFinite(
-          Number(item.inicio)
-        ) &&
-        Number.isFinite(
-          Number(item.fim)
-        ) &&
-        Number(item.fim) >
-          Number(item.inicio)
-    )
-    .map(
-      (item) => ({
-        palavra:
-          String(
-            item.palavra
-          ),
+  const palavrasPorGrupo =
+    4;
 
-        inicio:
-          Number(
-            item.inicio
-          ),
-
-        fim:
+  const validas =
+    palavras
+      .filter(
+        (item) =>
+          item &&
+          item.palavra &&
+          Number.isFinite(
+            Number(
+              item.inicio
+            )
+          ) &&
+          Number.isFinite(
+            Number(
+              item.fim
+            )
+          ) &&
           Number(
             item.fim
-          ),
-      })
-    )
-    .sort(
-      (a, b) =>
-        a.inicio -
-        b.inicio
-    );
+          ) >
+            Number(
+              item.inicio
+            )
+      )
+      .map(
+        (item) => ({
+          palavra:
+            String(
+              item.palavra
+            ),
+
+          inicio:
+            Number(
+              item.inicio
+            ),
+
+          fim:
+            Number(
+              item.fim
+            ),
+        })
+      )
+      .sort(
+        (a, b) =>
+          a.inicio -
+          b.inicio
+      );
 
 
-  if (validas.length === 0) {
+  if (
+    validas.length ===
+    0
+  ) {
+
     throw new Error(
-      "Nenhuma palavra válida para criar legenda."
+      "Nenhuma palavra válida para legenda."
     );
   }
 
@@ -374,13 +445,9 @@ function criarLegendaTikTok(
   console.log(
     "Última palavra:",
     validas[
-      validas.length - 1
+      validas.length -
+        1
     ]
-  );
-
-  console.log(
-    "Total de palavras:",
-    validas.length
   );
 
 
@@ -400,24 +467,31 @@ Style: TikTok,DejaVu Sans,82,&H00FFFFFF,&H00FFFFFF,&H00000000,&H50000000,-1,0,0,
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
-  const eventos = [];
+  const eventos =
+    [];
 
 
   /*
   |--------------------------------------------------------------------------
-  | Grupos de 4 palavras
+  | Grupos
   |--------------------------------------------------------------------------
   */
 
   for (
-    let grupoInicio = 0;
-    grupoInicio < validas.length;
-    grupoInicio += palavrasPorGrupo
+    let grupoInicio =
+      0;
+
+    grupoInicio <
+    validas.length;
+
+    grupoInicio +=
+      palavrasPorGrupo
   ) {
 
     const grupo =
       validas.slice(
         grupoInicio,
+
         grupoInicio +
           palavrasPorGrupo
       );
@@ -425,13 +499,16 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
     /*
     |--------------------------------------------------------------------------
-    | Um evento por palavra
+    | Evento para cada palavra
     |--------------------------------------------------------------------------
     */
 
     for (
       let j = 0;
-      j < grupo.length;
+
+      j <
+      grupo.length;
+
       j++
     ) {
 
@@ -449,18 +526,16 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       let fimEvento;
 
 
-      /*
-       * A legenda atual continua
-       * até a próxima palavra começar.
-       */
       if (
-        indiceGlobal + 1 <
+        indiceGlobal +
+          1 <
         validas.length
       ) {
 
         fimEvento =
           validas[
-            indiceGlobal + 1
+            indiceGlobal +
+              1
           ].inicio;
 
       } else {
@@ -470,9 +545,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       }
 
 
-      /*
-       * Segurança para tempos iguais.
-       */
       if (
         fimEvento <=
         inicioEvento
@@ -485,7 +557,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Montar texto
+      | Texto
       |--------------------------------------------------------------------------
       */
 
@@ -499,16 +571,18 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
               const palavra =
                 escaparTextoASS(
-                  item.palavra
+                  item
+                    .palavra
                     .toUpperCase()
                 );
 
 
               /*
-               * Palavra falada agora.
+               * Palavra atual
                */
               if (
-                posicao === j
+                posicao ===
+                j
               ) {
 
                 return (
@@ -529,7 +603,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       /*
-       * Centralizado.
+       * Centro / parte baixa.
        */
       const texto =
         "{\\an5\\pos(540,1320)}" +
@@ -543,7 +617,9 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
           fimEvento
         )},TikTok,,0,0,0,,${texto}`
       );
+
     }
+
   }
 
 
@@ -559,30 +635,30 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
   console.log(
-    "Legenda criada:",
-    destino
-  );
-
-  console.log(
-    "Primeiro evento:",
-    eventos[0]
+    "Legenda criada."
   );
 
   console.log(
     "Eventos:",
     eventos.length
   );
+
+  console.log(
+    "Primeiro:",
+    eventos[0]
+  );
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Página inicial
+| Home
 |--------------------------------------------------------------------------
 */
 
 app.get(
   "/",
+
   (
     req,
     res
@@ -599,16 +675,17 @@ app.get(
       ffmpeg:
         true,
 
+      modo:
+        "placeholder-imagem-loop",
+
       legenda:
         "timestamps-reais",
 
-      duracao:
-        "corrigida",
-
       versao:
-        "6.1",
+        "7.0",
 
     });
+
   }
 );
 
@@ -621,6 +698,7 @@ app.get(
 
 app.get(
   "/health",
+
   (
     req,
     res
@@ -642,6 +720,7 @@ app.get(
 
 app.post(
   "/render",
+
   async (
     req,
     res
@@ -650,12 +729,14 @@ app.post(
     const pasta =
       path.join(
         os.tmpdir(),
+
         `video-${crypto.randomUUID()}`
       );
 
 
     fs.mkdirSync(
       pasta,
+
       {
         recursive:
           true,
@@ -669,8 +750,10 @@ app.post(
         id,
         imagens,
         audio,
-        palavras = [],
-      } = req.body;
+        palavras =
+          [],
+      } =
+        req.body;
 
 
       /*
@@ -684,8 +767,10 @@ app.post(
         return res
           .status(400)
           .json({
+
             erro:
               "ID não informado",
+
           });
 
       }
@@ -702,8 +787,10 @@ app.post(
         return res
           .status(400)
           .json({
+
             erro:
               "Nenhuma imagem informada",
+
           });
 
       }
@@ -714,44 +801,28 @@ app.post(
         return res
           .status(400)
           .json({
+
             erro:
               "Áudio não informado",
+
           });
 
       }
 
 
       console.log(
-        "=============================="
+        "============================"
       );
 
       console.log(
-        "Nova renderização"
-      );
-
-      console.log(
-        "ID:",
+        "Render:",
         id
-      );
-
-      console.log(
-        "Imagens:",
-        imagens.length
-      );
-
-      console.log(
-        "Palavras:",
-        Array.isArray(
-          palavras
-        )
-          ? palavras.length
-          : 0
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Baixar áudio
+      | Áudio
       |--------------------------------------------------------------------------
       */
 
@@ -768,162 +839,63 @@ app.post(
       );
 
 
-      /*
-      |--------------------------------------------------------------------------
-      | Baixar imagens
-      |--------------------------------------------------------------------------
-      */
-
-      const imagensLocais =
-        [];
-
-
-      for (
-        let i = 0;
-        i <
-          imagens.length;
-        i++
-      ) {
-
-        const extensao =
-          descobrirExtensao(
-            imagens[i]
-          );
-
-
-        const destino =
-          path.join(
-            pasta,
-            `imagem-${i}.${extensao}`
-          );
-
-
-        await baixarArquivo(
-          imagens[i],
-          destino
-        );
-
-
-        imagensLocais.push(
-          destino
-        );
-
-      }
-
-
-      /*
-      |--------------------------------------------------------------------------
-      | Duração real do áudio
-      |--------------------------------------------------------------------------
-      */
-
       const duracaoAudio =
-        await obterDuracaoAudio(
+        await obterDuracao(
           audioPath
         );
 
 
       console.log(
-        "Duração do áudio:",
-        duracaoAudio
+        "Áudio:",
+        duracaoAudio,
+        "segundos"
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Duração de cada imagem
+      | Placeholder
+      |--------------------------------------------------------------------------
+      |
+      | Agora usamos SOMENTE a primeira imagem.
+      |
+      | Ela será substituída depois
+      | pelo vídeo produzido pela IA.
+      |
       |--------------------------------------------------------------------------
       */
 
-      const duracaoImagem =
-        duracaoAudio /
-        imagensLocais.length;
+      const imagemUrl =
+        imagens[0];
 
 
-      console.log(
-        "Duração por imagem:",
-        duracaoImagem
-      );
+      const extensao =
+        descobrirExtensao(
+          imagemUrl
+        );
 
 
-      /*
-      |--------------------------------------------------------------------------
-      | Arquivo concat
-      |--------------------------------------------------------------------------
-      */
-
-      const concatPath =
+      const imagemPath =
         path.join(
           pasta,
-          "imagens.txt"
+          `placeholder.${extensao}`
         );
 
 
-      let concat = "";
-
-
-      for (
-        const imagem
-        of imagensLocais
-      ) {
-
-        const imagemEscapada =
-          imagem.replace(
-            /'/g,
-            "'\\''"
-          );
-
-
-        concat +=
-          `file '${imagemEscapada}'\n`;
-
-
-        concat +=
-          `duration ${duracaoImagem}\n`;
-
-      }
-
-
-      /*
-       * Repetir a última imagem
-       * é necessário para concat
-       * respeitar sua duração.
-       */
-      const ultimaImagem =
-        imagensLocais[
-          imagensLocais.length -
-            1
-        ].replace(
-          /'/g,
-          "'\\''"
-        );
-
-
-      concat +=
-        `file '${ultimaImagem}'\n`;
-
-
-      fs.writeFileSync(
-        concatPath,
-        concat,
-        "utf8"
-      );
-
-
-      console.log(
-        "Concat criado:"
-      );
-
-      console.log(
-        concat
+      await baixarArquivo(
+        imagemUrl,
+        imagemPath
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | ETAPA 1
+      | Vídeo base
+      |--------------------------------------------------------------------------
       |
-      | Criar vídeo base
+      | A imagem fica em loop durante
+      | EXATAMENTE a duração do áudio.
+      |
       |--------------------------------------------------------------------------
       */
 
@@ -935,7 +907,9 @@ app.post(
 
 
       console.log(
-        "ETAPA 1 - vídeo base..."
+        "Criando placeholder de",
+        duracaoAudio,
+        "segundos..."
       );
 
 
@@ -947,44 +921,39 @@ app.post(
 
 
           /*
-           * NÃO usar +genpts aqui.
-           *
-           * Ele estava destruindo a duração
-           * do concat das imagens.
+           * LOOP DA IMAGEM
            */
+          "-loop",
+          "1",
 
 
-          "-f",
-          "concat",
+          /*
+           * FPS da imagem
+           */
+          "-framerate",
+          "24",
 
 
-          "-safe",
-          "0",
-
-
+          /*
+           * Imagem
+           */
           "-i",
-          concatPath,
+          imagemPath,
 
 
+          /*
+           * Áudio
+           */
           "-i",
           audioPath,
 
 
           /*
-           * Resetamos apenas PTS,
-           * sem recriar timestamps.
+           * Vídeo vertical
            */
           "-vf",
 
-          "setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=24,format=yuv420p",
-
-
-          /*
-           * Áudio também começa no 0.
-           */
-          "-af",
-
-          "asetpts=PTS-STARTPTS",
+          "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p",
 
 
           /*
@@ -1000,6 +969,14 @@ app.post(
 
           "-crf",
           "25",
+
+
+          "-pix_fmt",
+          "yuv420p",
+
+
+          "-r",
+          "24",
 
 
           "-threads",
@@ -1022,18 +999,14 @@ app.post(
 
 
           /*
-           * Terminar junto com
-           * o stream mais curto.
+           * DURAÇÃO EXATA
+           *
+           * Esse é o ponto principal.
            */
-          "-shortest",
-
-
-          /*
-           * Evitar timestamps negativos
-           * sem recriar PTS.
-           */
-          "-avoid_negative_ts",
-          "make_zero",
+          "-t",
+          String(
+            duracaoAudio
+          ),
 
 
           "-movflags",
@@ -1046,28 +1019,22 @@ app.post(
       );
 
 
-      if (
-        !fs.existsSync(
-          videoBasePath
-        )
-      ) {
+      /*
+      |--------------------------------------------------------------------------
+      | Conferir duração
+      |--------------------------------------------------------------------------
+      */
 
-        throw new Error(
-          "Vídeo base não foi criado."
-        );
-
-      }
-
-
-      const duracaoVideoBase =
-        await obterDuracaoAudio(
+      const duracaoBase =
+        await obterDuracao(
           videoBasePath
         );
 
 
       console.log(
-        "Duração vídeo base:",
-        duracaoVideoBase
+        "Vídeo base:",
+        duracaoBase,
+        "segundos"
       );
 
 
@@ -1086,9 +1053,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | ETAPA 2
-      |
-      | Aplicar legendas
+      | Legenda
       |--------------------------------------------------------------------------
       */
 
@@ -1114,7 +1079,7 @@ app.post(
 
 
         console.log(
-          "ETAPA 2 - legendas..."
+          "Aplicando legenda..."
         );
 
 
@@ -1125,18 +1090,15 @@ app.post(
             "-y",
 
 
-            /*
-             * NÃO usar +genpts aqui.
-             */
-
-
             "-i",
             videoBasePath,
 
 
             /*
-             * Reset do relógio,
-             * depois aplica legenda.
+             * Reset de PTS
+             *
+             * Este foi o que resolveu
+             * a legenda começando tarde.
              */
             "-vf",
 
@@ -1155,19 +1117,29 @@ app.post(
             "23",
 
 
+            "-pix_fmt",
+            "yuv420p",
+
+
             "-threads",
             "2",
 
 
             /*
-             * Copiar áudio.
+             * Copiar áudio
              */
             "-c:a",
             "copy",
 
 
-            "-avoid_negative_ts",
-            "make_zero",
+            /*
+             * Mantém exatamente
+             * o tamanho do áudio.
+             */
+            "-t",
+            String(
+              duracaoAudio
+            ),
 
 
             "-movflags",
@@ -1183,11 +1155,6 @@ app.post(
       } else {
 
 
-        console.log(
-          "Nenhuma legenda recebida."
-        );
-
-
         fs.copyFileSync(
           videoBasePath,
           outputPath
@@ -1198,7 +1165,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Validar resultado
+      | Validar final
       |--------------------------------------------------------------------------
       */
 
@@ -1215,30 +1182,20 @@ app.post(
       }
 
 
+      const duracaoFinal =
+        await obterDuracao(
+          outputPath
+        );
+
+
       const tamanho =
         fs.statSync(
           outputPath
         ).size;
 
 
-      const duracaoFinal =
-        await obterDuracaoAudio(
-          outputPath
-        );
-
-
       console.log(
-        "=============================="
-      );
-
-      console.log(
-        "Vídeo pronto"
-      );
-
-      console.log(
-        "Tamanho:",
-        tamanho,
-        "bytes"
+        "============================"
       );
 
       console.log(
@@ -1247,7 +1204,12 @@ app.post(
       );
 
       console.log(
-        "=============================="
+        "Tamanho:",
+        tamanho
+      );
+
+      console.log(
+        "============================"
       );
 
 
@@ -1294,6 +1256,7 @@ app.post(
 
             fs.rmSync(
               pasta,
+
               {
                 recursive:
                   true,
@@ -1333,6 +1296,7 @@ app.post(
 
         fs.rmSync(
           pasta,
+
           {
             recursive:
               true,
@@ -1371,13 +1335,15 @@ app.post(
 
 /*
 |--------------------------------------------------------------------------
-| Iniciar servidor
+| Servidor
 |--------------------------------------------------------------------------
 */
 
 app.listen(
   PORT,
+
   "0.0.0.0",
+
   () => {
 
     console.log(
