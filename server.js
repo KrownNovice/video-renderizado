@@ -29,7 +29,6 @@ function executar(comando, args) {
       const texto = data.toString();
 
       erro += texto;
-
       console.log(texto);
     });
 
@@ -79,7 +78,7 @@ function normalizarGoogleDrive(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Baixar arquivos
+| Baixar arquivo
 |--------------------------------------------------------------------------
 */
 
@@ -116,7 +115,7 @@ async function baixarArquivo(url, destino) {
 
 /*
 |--------------------------------------------------------------------------
-| Duração do áudio
+| Descobrir duração do áudio
 |--------------------------------------------------------------------------
 */
 
@@ -193,7 +192,7 @@ function obterDuracaoAudio(audio) {
 
 /*
 |--------------------------------------------------------------------------
-| Extensão das imagens
+| Extensão da imagem
 |--------------------------------------------------------------------------
 */
 
@@ -227,7 +226,7 @@ function descobrirExtensao(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Formatar tempo ASS
+| Tempo das legendas
 |--------------------------------------------------------------------------
 */
 
@@ -280,7 +279,7 @@ function formatarTempoASS(segundos) {
 
 /*
 |--------------------------------------------------------------------------
-| Escapar caracteres da legenda
+| Escapar texto ASS
 |--------------------------------------------------------------------------
 */
 
@@ -307,24 +306,7 @@ function escaparTextoASS(texto) {
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda TikTok
-|--------------------------------------------------------------------------
-|
-| 4 palavras ficam na tela.
-|
-| Exemplo:
-|
-| CANSADO DA BAGUNÇA NA
-|
-| Conforme a fala:
-|
-| CANSADO = amarelo
-| DA      = amarelo
-| BAGUNÇA = amarelo
-|
-| Cada evento usa diretamente
-| os timestamps reais do Whisper.
-|
+| Criar legenda
 |--------------------------------------------------------------------------
 */
 
@@ -372,6 +354,7 @@ function criarLegendaTikTok(
         b.inicio
     );
 
+
   if (
     validas.length === 0
   ) {
@@ -380,20 +363,14 @@ function criarLegendaTikTok(
     );
   }
 
+
   console.log(
     "Primeira palavra:",
     validas[0]
   );
 
   console.log(
-    "Última palavra:",
-    validas[
-      validas.length - 1
-    ]
-  );
-
-  console.log(
-    "Total palavras:",
+    "Total de palavras:",
     validas.length
   );
 
@@ -419,7 +396,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   /*
   |--------------------------------------------------------------------------
-  | Criar grupos
+  | Criar grupos de 4 palavras
   |--------------------------------------------------------------------------
   */
 
@@ -441,13 +418,14 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
     /*
     |--------------------------------------------------------------------------
-    | Cada palavra gera um evento
+    | Cada palavra recebe um evento real
     |--------------------------------------------------------------------------
     */
 
     for (
       let j = 0;
-      j < grupo.length;
+      j <
+        grupo.length;
       j++
     ) {
 
@@ -458,51 +436,41 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
         grupoInicio + j;
 
 
-      /*
-      |--------------------------------------------------------------------------
-      | Início REAL da palavra
-      |--------------------------------------------------------------------------
-      */
-
       const inicioEvento =
         atual.inicio;
 
 
-      /*
-      |--------------------------------------------------------------------------
-      | Final
-      |--------------------------------------------------------------------------
-      |
-      | Mantemos o texto até a próxima palavra começar.
-      |
-      */
-
       let fimEvento;
 
+
+      /*
+       * Mantém até a próxima palavra.
+       */
       if (
         indiceGlobal + 1 <
         validas.length
       ) {
+
         fimEvento =
           validas[
             indiceGlobal + 1
           ].inicio;
+
       } else {
+
         fimEvento =
           atual.fim;
       }
 
 
       /*
-      |--------------------------------------------------------------------------
-      | Segurança
-      |--------------------------------------------------------------------------
-      */
-
+       * Segurança
+       */
       if (
         fimEvento <=
         inicioEvento
       ) {
+
         fimEvento =
           atual.fim;
       }
@@ -510,7 +478,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Montar texto
+      | Montar as 4 palavras
       |--------------------------------------------------------------------------
       */
 
@@ -530,11 +498,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
               /*
-               * Palavra sendo falada
+               * Palavra atual:
+               * AMARELA + maior
                */
               if (
                 posicao === j
               ) {
+
                 return (
                   "{\\c&H0000FFFF&" +
                   "\\fs94" +
@@ -547,7 +517,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
               /*
-               * Outras palavras
+               * Palavras restantes
                */
               return palavra;
             }
@@ -557,15 +527,8 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Posição da legenda
+      | Centralizar
       |--------------------------------------------------------------------------
-      |
-      | X = 540
-      | Y = 1320
-      |
-      | Centro inferior,
-      | mas acima dos controles do TikTok.
-      |
       */
 
       const texto =
@@ -575,30 +538,20 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Criar evento
+      | Evento ASS
       |--------------------------------------------------------------------------
       */
 
-      const evento =
+      eventos.push(
         `Dialogue: 0,${formatarTempoASS(
           inicioEvento
         )},${formatarTempoASS(
           fimEvento
-        )},TikTok,,0,0,0,,${texto}`;
-
-
-      eventos.push(
-        evento
+        )},TikTok,,0,0,0,,${texto}`
       );
     }
   }
 
-
-  /*
-  |--------------------------------------------------------------------------
-  | Salvar arquivo
-  |--------------------------------------------------------------------------
-  */
 
   fs.writeFileSync(
     destino,
@@ -612,18 +565,18 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
   console.log(
-    "Legenda criada:",
+    "Arquivo de legenda:",
     destino
-  );
-
-  console.log(
-    "Total eventos:",
-    eventos.length
   );
 
   console.log(
     "Primeiro evento:",
     eventos[0]
+  );
+
+  console.log(
+    "Quantidade eventos:",
+    eventos.length
   );
 }
 
@@ -636,7 +589,10 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 app.get(
   "/",
-  (req, res) => {
+  (
+    req,
+    res
+  ) => {
 
     res.json({
       status:
@@ -649,10 +605,10 @@ app.get(
         true,
 
       legenda:
-        "timestamps-reais-eventos",
+        "timestamps-resetados",
 
       versao:
-        "5.0",
+        "6.0",
     });
   }
 );
@@ -666,7 +622,10 @@ app.get(
 
 app.get(
   "/health",
-  (req, res) => {
+  (
+    req,
+    res
+  ) => {
 
     res.json({
       ok: true,
@@ -677,7 +636,7 @@ app.get(
 
 /*
 |--------------------------------------------------------------------------
-| Renderizar
+| Renderizar vídeo
 |--------------------------------------------------------------------------
 */
 
@@ -721,6 +680,7 @@ app.post(
       */
 
       if (!id) {
+
         return res
           .status(400)
           .json({
@@ -737,6 +697,7 @@ app.post(
         imagens.length ===
           0
       ) {
+
         return res
           .status(400)
           .json({
@@ -747,6 +708,7 @@ app.post(
 
 
       if (!audio) {
+
         return res
           .status(400)
           .json({
@@ -755,6 +717,14 @@ app.post(
           });
       }
 
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "Nova renderização"
+      );
 
       console.log(
         "ID:",
@@ -767,18 +737,14 @@ app.post(
       );
 
       console.log(
-        "Palavras recebidas:",
-        Array.isArray(
-          palavras
-        )
-          ? palavras.length
-          : 0
+        "Palavras:",
+        palavras.length
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Baixar áudio
+      | Áudio
       |--------------------------------------------------------------------------
       */
 
@@ -797,7 +763,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Baixar imagens
+      | Imagens
       |--------------------------------------------------------------------------
       */
 
@@ -839,7 +805,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Duração áudio
+      | Duração real do áudio
       |--------------------------------------------------------------------------
       */
 
@@ -850,16 +816,10 @@ app.post(
 
 
       console.log(
-        "Duração áudio:",
+        "Duração:",
         duracaoAudio
       );
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Tempo por imagem
-      |--------------------------------------------------------------------------
-      */
 
       const duracaoImagem =
         duracaoAudio /
@@ -868,7 +828,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Criar concat
+      | Concat
       |--------------------------------------------------------------------------
       */
 
@@ -928,7 +888,7 @@ app.post(
       |--------------------------------------------------------------------------
       | ETAPA 1
       |
-      | Criar vídeo base
+      | Vídeo base com TEMPO RESETADO
       |--------------------------------------------------------------------------
       */
 
@@ -950,6 +910,17 @@ app.post(
 
           "-y",
 
+
+          /*
+           * Gerar timestamps
+           */
+          "-fflags",
+          "+genpts",
+
+
+          /*
+           * Imagens
+           */
           "-f",
           "concat",
 
@@ -959,13 +930,35 @@ app.post(
           "-i",
           concatPath,
 
+
+          /*
+           * Áudio
+           */
           "-i",
           audioPath,
 
+
+          /*
+           * IMPORTANTÍSSIMO
+           *
+           * Reset do relógio do vídeo.
+           */
           "-vf",
 
-          "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=24,format=yuv420p",
+          "setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=24,format=yuv420p",
 
+
+          /*
+           * Reset do relógio do áudio.
+           */
+          "-af",
+
+          "asetpts=PTS-STARTPTS",
+
+
+          /*
+           * Vídeo
+           */
           "-c:v",
           "libx264",
 
@@ -978,6 +971,10 @@ app.post(
           "-threads",
           "2",
 
+
+          /*
+           * Áudio
+           */
           "-c:a",
           "aac",
 
@@ -987,10 +984,30 @@ app.post(
           "-b:a",
           "128k",
 
+
+          /*
+           * FPS constante
+           */
+          "-fps_mode",
+          "cfr",
+
+
+          /*
+           * Eliminar timestamp negativo
+           */
+          "-avoid_negative_ts",
+          "make_zero",
+
+
+          /*
+           * Finalizar no menor stream
+           */
           "-shortest",
+
 
           "-movflags",
           "+faststart",
+
 
           videoBasePath,
         ]
@@ -1002,10 +1019,16 @@ app.post(
           videoBasePath
         )
       ) {
+
         throw new Error(
           "Vídeo base não foi criado."
         );
       }
+
+
+      console.log(
+        "Vídeo base criado."
+      );
 
 
       /*
@@ -1025,7 +1048,7 @@ app.post(
       |--------------------------------------------------------------------------
       | ETAPA 2
       |
-      | Aplicar legendas
+      | Aplicar legenda sobre vídeo com PTS RESETADO
       |--------------------------------------------------------------------------
       */
 
@@ -1051,7 +1074,7 @@ app.post(
 
 
         console.log(
-          "Aplicando legendas..."
+          "Aplicando legenda..."
         );
 
 
@@ -1061,40 +1084,78 @@ app.post(
 
             "-y",
 
+
+            /*
+             * Gerar timestamps novamente
+             */
+            "-fflags",
+            "+genpts",
+
+
             "-i",
             videoBasePath,
 
+
+            /*
+             * RESETAR NOVAMENTE
+             *
+             * Depois aplicar legenda.
+             */
             "-vf",
 
-            `subtitles=${legendaPath}`,
+            `setpts=PTS-STARTPTS,subtitles=${legendaPath}`,
+
 
             "-c:v",
             "libx264",
 
+
             "-preset",
             "veryfast",
+
 
             "-crf",
             "23",
 
+
             "-threads",
             "2",
 
+
+            /*
+             * Áudio não precisa
+             * ser reencodado.
+             */
             "-c:a",
             "copy",
 
+
+            /*
+             * Timestamp zero
+             */
+            "-avoid_negative_ts",
+            "make_zero",
+
+
             "-movflags",
             "+faststart",
+
 
             outputPath,
           ]
         );
 
 
+        console.log(
+          "Legenda aplicada."
+        );
+
+
       } else {
 
+
         console.log(
-          "Nenhuma palavra recebida."
+          "Sem legendas."
         );
 
 
@@ -1107,7 +1168,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Validar
+      | Validar MP4
       |--------------------------------------------------------------------------
       */
 
@@ -1116,6 +1177,7 @@ app.post(
           outputPath
         )
       ) {
+
         throw new Error(
           "MP4 final não foi criado."
         );
@@ -1128,9 +1190,16 @@ app.post(
         ).size;
 
 
+      console.log(
+        "MP4:",
+        tamanho,
+        "bytes"
+      );
+
+
       /*
       |--------------------------------------------------------------------------
-      | Retornar vídeo
+      | Enviar arquivo
       |--------------------------------------------------------------------------
       */
 
@@ -1159,7 +1228,9 @@ app.post(
         );
 
 
-      stream.pipe(res);
+      stream.pipe(
+        res
+      );
 
 
       const limpar =
@@ -1196,6 +1267,7 @@ app.post(
 
 
     } catch (error) {
+
 
       console.error(
         "ERRO:",
@@ -1241,7 +1313,7 @@ app.post(
 
 /*
 |--------------------------------------------------------------------------
-| Iniciar servidor
+| Servidor
 |--------------------------------------------------------------------------
 */
 
