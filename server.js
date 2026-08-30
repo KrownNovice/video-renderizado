@@ -102,7 +102,7 @@ async function baixarArquivo(url, destino) {
 
     maxRedirects: 10,
 
-    timeout: 60000,
+    timeout: 120000,
 
     headers: {
       "User-Agent":
@@ -113,6 +113,13 @@ async function baixarArquivo(url, destino) {
   fs.writeFileSync(
     destino,
     resposta.data
+  );
+
+  console.log(
+    "Arquivo salvo:",
+    destino,
+    resposta.data.length,
+    "bytes"
   );
 }
 
@@ -186,6 +193,7 @@ function obterDuracao(arquivo) {
               duracao
             )
           ) {
+
             reject(
               new Error(
                 "Não foi possível descobrir a duração."
@@ -207,7 +215,61 @@ function obterDuracao(arquivo) {
 
 /*
 |--------------------------------------------------------------------------
-| Extensão
+| Verificar se vídeo possui áudio
+|--------------------------------------------------------------------------
+*/
+
+function temAudio(arquivo) {
+  return new Promise(
+    (resolve) => {
+
+      const processo =
+        spawn(
+          "ffprobe",
+          [
+            "-v",
+            "error",
+
+            "-select_streams",
+            "a:0",
+
+            "-show_entries",
+            "stream=index",
+
+            "-of",
+            "csv=p=0",
+
+            arquivo,
+          ]
+        );
+
+      let resultado = "";
+
+      processo.stdout.on(
+        "data",
+        (data) => {
+          resultado +=
+            data.toString();
+        }
+      );
+
+      processo.on(
+        "close",
+        () => {
+          resolve(
+            resultado.trim()
+              .length > 0
+          );
+        }
+      );
+    }
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Extensão da imagem
 |--------------------------------------------------------------------------
 */
 
@@ -217,9 +279,7 @@ function descobrirExtensao(url) {
       .split("?")[0]
       .toLowerCase();
 
-  if (
-    limpa.endsWith(".png")
-  ) {
+  if (limpa.endsWith(".png")) {
     return "png";
   }
 
@@ -230,9 +290,7 @@ function descobrirExtensao(url) {
     return "jpg";
   }
 
-  if (
-    limpa.endsWith(".webp")
-  ) {
+  if (limpa.endsWith(".webp")) {
     return "webp";
   }
 
@@ -296,7 +354,7 @@ function formatarTempoASS(segundos) {
 
 /*
 |--------------------------------------------------------------------------
-| Escapar ASS
+| Escapar texto ASS
 |--------------------------------------------------------------------------
 */
 
@@ -347,7 +405,7 @@ function normalizarTexto(texto) {
 
 /*
 |--------------------------------------------------------------------------
-| Números escritos em português
+| Números em português
 |--------------------------------------------------------------------------
 */
 
@@ -379,6 +437,7 @@ const unidades = {
   dezenove: 19,
 };
 
+
 const dezenas = {
   vinte: 20,
   trinta: 30,
@@ -389,6 +448,7 @@ const dezenas = {
   oitenta: 80,
   noventa: 90,
 };
+
 
 const centenas = {
   cem: 100,
@@ -440,6 +500,7 @@ function palavrasParaNumero(tokens) {
         tokenOriginal
       );
 
+
     if (
       token === "e"
     ) {
@@ -447,9 +508,6 @@ function palavrasParaNumero(tokens) {
     }
 
 
-    /*
-     * Número já veio em algarismo.
-     */
     if (
       /^\d+$/.test(
         token
@@ -559,7 +617,7 @@ function palavrasParaNumero(tokens) {
 
 /*
 |--------------------------------------------------------------------------
-| É parte de número falado?
+| É parte de número?
 |--------------------------------------------------------------------------
 */
 
@@ -569,11 +627,13 @@ function ehParteNumero(texto) {
       texto
     );
 
+
   if (
     token === "e"
   ) {
     return true;
   }
+
 
   if (
     /^\d+$/.test(
@@ -582,6 +642,7 @@ function ehParteNumero(texto) {
   ) {
     return true;
   }
+
 
   if (
     Object.prototype
@@ -593,6 +654,7 @@ function ehParteNumero(texto) {
     return true;
   }
 
+
   if (
     Object.prototype
       .hasOwnProperty.call(
@@ -602,6 +664,7 @@ function ehParteNumero(texto) {
   ) {
     return true;
   }
+
 
   if (
     Object.prototype
@@ -613,11 +676,13 @@ function ehParteNumero(texto) {
     return true;
   }
 
+
   if (
     token === "mil"
   ) {
     return true;
   }
+
 
   return false;
 }
@@ -639,6 +704,7 @@ function formatarPreco(
       0,
       Number(reais) || 0
     );
+
 
   const valorCentavos =
     Math.max(
@@ -663,7 +729,7 @@ function formatarPreco(
 
 /*
 |--------------------------------------------------------------------------
-| Detectar preço já numérico
+| Detectar preço numérico
 |--------------------------------------------------------------------------
 */
 
@@ -675,6 +741,7 @@ function tentarPrecoNumerico(
   const atual =
     base[indice];
 
+
   const compacto =
     String(
       atual.palavra
@@ -685,9 +752,6 @@ function tentarPrecoNumerico(
       );
 
 
-  /*
-   * R$39,90
-   */
   const junto =
     compacto.match(
       /^R\$(\d{1,6})(?:[.,](\d{1,2}))?$/i
@@ -701,6 +765,7 @@ function tentarPrecoNumerico(
     return {
 
       item: {
+
         palavra:
           formatarPreco(
             junto[1],
@@ -715,6 +780,7 @@ function tentarPrecoNumerico(
 
         preco:
           true,
+
       },
 
       ultimoIndice:
@@ -725,11 +791,6 @@ function tentarPrecoNumerico(
   }
 
 
-  /*
-   * R$
-   * ou
-   * R + $
-   */
   let cursor =
     indice;
 
@@ -786,9 +847,6 @@ function tentarPrecoNumerico(
       );
 
 
-  /*
-   * 39,90
-   */
   const valorCompleto =
     primeiro.match(
       /^(\d{1,6})[.,](\d{1,2})$/
@@ -802,6 +860,7 @@ function tentarPrecoNumerico(
     return {
 
       item: {
+
         palavra:
           formatarPreco(
             valorCompleto[1],
@@ -816,6 +875,7 @@ function tentarPrecoNumerico(
 
         preco:
           true,
+
       },
 
       ultimoIndice:
@@ -826,12 +886,6 @@ function tentarPrecoNumerico(
   }
 
 
-  /*
-   * 39 + 90
-   *
-   * Whisper às vezes separa
-   * reais e centavos.
-   */
   if (
     /^\d{1,6}$/.test(
       primeiro
@@ -843,8 +897,10 @@ function tentarPrecoNumerico(
         primeiro
       );
 
+
     let centavos =
       0;
+
 
     let ultimo =
       cursor;
@@ -871,9 +927,6 @@ function tentarPrecoNumerico(
           );
 
 
-      /*
-       * R$ 39 90
-       */
       if (
         /^\d{1,2}$/.test(
           textoProximo
@@ -890,6 +943,7 @@ function tentarPrecoNumerico(
 
         ultimo =
           cursor + 1;
+
       }
 
     }
@@ -898,6 +952,7 @@ function tentarPrecoNumerico(
     return {
 
       item: {
+
         palavra:
           formatarPreco(
             reais,
@@ -912,6 +967,7 @@ function tentarPrecoNumerico(
 
         preco:
           true,
+
       },
 
       ultimoIndice:
@@ -928,11 +984,7 @@ function tentarPrecoNumerico(
 
 /*
 |--------------------------------------------------------------------------
-| Detectar:
-|
-| trinta e nove reais
-| trinta e nove reais e noventa centavos
-| 39 reais e 90 centavos
+| Detectar preço falado
 |--------------------------------------------------------------------------
 */
 
@@ -955,16 +1007,15 @@ function tentarPrecoFalado(
   const palavrasReais =
     [];
 
+
   let cursor =
     indice;
+
 
   let encontrouReais =
     false;
 
 
-  /*
-   * Procurar "real/reais".
-   */
   while (
     cursor <
       base.length &&
@@ -1006,6 +1057,7 @@ function tentarPrecoFalado(
 
 
     cursor++;
+
   }
 
 
@@ -1032,15 +1084,10 @@ function tentarPrecoFalado(
   const indiceReais =
     cursor;
 
+
   cursor++;
 
 
-  /*
-   * Depois de "reais"
-   * pode vir:
-   *
-   * e noventa centavos
-   */
   if (
     base[cursor] &&
     normalizarTexto(
@@ -1055,8 +1102,10 @@ function tentarPrecoFalado(
   const inicioCentavos =
     cursor;
 
+
   const palavrasCentavos =
     [];
+
 
   let encontrouCentavos =
     false;
@@ -1103,11 +1152,13 @@ function tentarPrecoFalado(
 
 
     cursor++;
+
   }
 
 
   let centavos =
     0;
+
 
   let ultimoIndice =
     indiceReais;
@@ -1115,8 +1166,7 @@ function tentarPrecoFalado(
 
   if (
     encontrouCentavos &&
-    palavrasCentavos.length >
-      0
+    palavrasCentavos.length > 0
   ) {
 
     const valorCentavos =
@@ -1126,8 +1176,7 @@ function tentarPrecoFalado(
 
 
     if (
-      valorCentavos !==
-        null
+      valorCentavos !== null
     ) {
 
       centavos =
@@ -1136,8 +1185,10 @@ function tentarPrecoFalado(
           valorCentavos
         );
 
+
       ultimoIndice =
         cursor;
+
     }
 
   }
@@ -1246,10 +1297,6 @@ function normalizarPalavras(
     i++
   ) {
 
-    /*
-     * Primeiro:
-     * preço com R$.
-     */
     const numerico =
       tentarPrecoNumerico(
         base,
@@ -1265,25 +1312,16 @@ function normalizarPalavras(
         numerico.item
       );
 
-      console.log(
-        "PREÇO NUMÉRICO:",
-        numerico.item
-          .palavra
-      );
-
 
       i =
         numerico
           .ultimoIndice;
 
+
       continue;
     }
 
 
-    /*
-     * Segundo:
-     * preço falado.
-     */
     const falado =
       tentarPrecoFalado(
         base,
@@ -1300,24 +1338,15 @@ function normalizarPalavras(
       );
 
 
-      console.log(
-        "PREÇO FALADO:",
-        falado.item
-          .palavra
-      );
-
-
       i =
         falado
           .ultimoIndice;
+
 
       continue;
     }
 
 
-    /*
-     * Palavra comum.
-     */
     resultado.push(
       base[i]
     );
@@ -1331,7 +1360,7 @@ function normalizarPalavras(
 
 /*
 |--------------------------------------------------------------------------
-| Fonte
+| Fonte automática
 |--------------------------------------------------------------------------
 */
 
@@ -1361,10 +1390,6 @@ function calcularFonte(
     );
 
 
-  /*
-   * Com preço:
-   * mais conservador.
-   */
   if (
     temPreco
   ) {
@@ -1397,9 +1422,6 @@ function calcularFonte(
   }
 
 
-  /*
-   * Normal.
-   */
   if (
     tamanho <= 15
   ) {
@@ -1439,7 +1461,7 @@ function calcularFonte(
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda
+| Criar legenda TikTok
 |--------------------------------------------------------------------------
 */
 
@@ -1459,8 +1481,7 @@ function criarLegendaTikTok(
 
 
   if (
-    validas.length ===
-    0
+    validas.length === 0
   ) {
 
     throw new Error(
@@ -1471,11 +1492,7 @@ function criarLegendaTikTok(
 
 
   console.log(
-    "Legenda normalizada:"
-  );
-
-
-  console.log(
+    "Legenda normalizada:",
     validas.map(
       item =>
         item.palavra
@@ -1655,15 +1672,16 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
   console.log(
-    "Legenda criada."
+    "Legenda criada:",
+    eventos.length,
+    "eventos"
   );
-
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Home
+| Página inicial
 |--------------------------------------------------------------------------
 */
 
@@ -1683,23 +1701,17 @@ app.get(
       servico:
         "video-renderizado",
 
-      ffmpeg:
-        true,
-
       modo:
-        "placeholder-imagem-loop",
+        "video-ia-narracao-legenda",
+
+      trilha:
+        "10%-configuravel",
 
       legenda:
-        "tiktok-preco-inteligente",
-
-      preco:
-        "numerico-ou-falado",
-
-      palavras_por_bloco:
-        3,
+        "tiktok",
 
       versao:
-        "7.3",
+        "8.0",
 
     });
 
@@ -1765,13 +1777,28 @@ app.post(
 
       const {
         id,
+
+        video_ia,
+
         imagens,
+
         audio,
+
         palavras =
           [],
+
+        volume_trilha =
+          0.10,
+
       } =
         req.body;
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | Validação
+      |--------------------------------------------------------------------------
+      */
 
       if (!id) {
 
@@ -1785,34 +1812,62 @@ app.post(
       }
 
 
-      if (
-        !Array.isArray(
-          imagens
-        ) ||
-        imagens.length ===
-          0
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            erro:
-              "Nenhuma imagem informada",
-          });
-
-      }
-
-
       if (!audio) {
 
         return res
           .status(400)
           .json({
             erro:
-              "Áudio não informado",
+              "Áudio da narração não informado",
           });
 
       }
+
+
+      if (
+        !video_ia &&
+        (
+          !Array.isArray(
+            imagens
+          ) ||
+          imagens.length === 0
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            erro:
+              "Informe video_ia ou pelo menos uma imagem",
+          });
+
+      }
+
+
+      /*
+      |--------------------------------------------------------------------------
+      | Volume trilha
+      |--------------------------------------------------------------------------
+      |
+      | 0.08 = 8%
+      | 0.10 = 10%
+      | 0.12 = 12%
+      |
+      |--------------------------------------------------------------------------
+      */
+
+      const volumeTrilha =
+        Math.min(
+          0.30,
+
+          Math.max(
+            0,
+
+            Number(
+              volume_trilha
+            ) || 0.10
+          )
+        );
 
 
       console.log(
@@ -1825,63 +1880,48 @@ app.post(
       );
 
 
+      console.log(
+        "Vídeo IA:",
+        Boolean(
+          video_ia
+        )
+      );
+
+
+      console.log(
+        "Volume trilha:",
+        volumeTrilha
+      );
+
+
       /*
       |--------------------------------------------------------------------------
-      | Áudio
+      | Narração
       |--------------------------------------------------------------------------
       */
 
-      const audioPath =
+      const narracaoPath =
         path.join(
           pasta,
-          "audio.mp3"
+          "narracao.mp3"
         );
 
 
       await baixarArquivo(
         audio,
-        audioPath
+        narracaoPath
       );
 
 
-      const duracaoAudio =
+      const duracaoNarracao =
         await obterDuracao(
-          audioPath
+          narracaoPath
         );
 
 
       console.log(
-        "Duração:",
-        duracaoAudio
-      );
-
-
-      /*
-      |--------------------------------------------------------------------------
-      | Placeholder
-      |--------------------------------------------------------------------------
-      */
-
-      const imagemUrl =
-        imagens[0];
-
-
-      const extensao =
-        descobrirExtensao(
-          imagemUrl
-        );
-
-
-      const imagemPath =
-        path.join(
-          pasta,
-          `placeholder.${extensao}`
-        );
-
-
-      await baixarArquivo(
-        imagemUrl,
-        imagemPath
+        "Duração narração:",
+        duracaoNarracao
       );
 
 
@@ -1898,72 +1938,381 @@ app.post(
         );
 
 
-      await executar(
-        "ffmpeg",
-        [
+      /*
+      |--------------------------------------------------------------------------
+      | MODO NOVO:
+      | usar vídeo da IA
+      |--------------------------------------------------------------------------
+      */
 
-          "-y",
+      if (
+        video_ia
+      ) {
 
-          "-loop",
-          "1",
+        const videoIAPath =
+          path.join(
+            pasta,
+            "video-ia.mp4"
+          );
 
-          "-framerate",
-          "24",
 
-          "-i",
-          imagemPath,
+        await baixarArquivo(
+          video_ia,
+          videoIAPath
+        );
 
-          "-i",
-          audioPath,
 
-          "-vf",
+        const duracaoVideoIA =
+          await obterDuracao(
+            videoIAPath
+          );
 
-          "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p",
 
-          "-c:v",
-          "libx264",
+        const possuiAudio =
+          await temAudio(
+            videoIAPath
+          );
 
-          "-preset",
-          "ultrafast",
 
-          "-crf",
-          "25",
+        console.log(
+          "Duração vídeo IA:",
+          duracaoVideoIA
+        );
 
-          "-pix_fmt",
-          "yuv420p",
 
-          "-r",
-          "24",
+        console.log(
+          "Vídeo IA possui áudio:",
+          possuiAudio
+        );
 
-          "-threads",
-          "2",
 
-          "-c:a",
-          "aac",
+        /*
+        |--------------------------------------------------------------------------
+        | Se vídeo IA tem música/áudio:
+        |
+        | áudio IA = 10%
+        | narração = 100%
+        |--------------------------------------------------------------------------
+        */
 
-          "-ar",
-          "48000",
+        if (
+          possuiAudio
+        ) {
 
-          "-b:a",
-          "128k",
+          const filtro =
+            [
+              "[0:v]",
+              "setpts=PTS-STARTPTS,",
+              "scale=1080:1920:force_original_aspect_ratio=decrease,",
+              "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,",
+              "tpad=stop_mode=clone:stop_duration=30,",
+              "fps=24,",
+              "format=yuv420p",
+              "[v];",
 
-          "-t",
-          String(
-            duracaoAudio
-          ),
+              `[0:a]volume=${volumeTrilha},`,
+              "aresample=48000,",
+              "asetpts=PTS-STARTPTS",
+              "[bg];",
 
-          "-movflags",
-          "+faststart",
+              "[1:a]volume=1.0,",
+              "aresample=48000,",
+              "asetpts=PTS-STARTPTS",
+              "[voice];",
 
-          videoBasePath,
+              "[bg][voice]",
+              "amix=inputs=2:",
+              "duration=longest:",
+              "dropout_transition=2:",
+              "normalize=0",
+              "[a]",
+            ].join("");
 
-        ]
+
+          await executar(
+            "ffmpeg",
+            [
+
+              "-y",
+
+              "-i",
+              videoIAPath,
+
+              "-i",
+              narracaoPath,
+
+              "-filter_complex",
+              filtro,
+
+              "-map",
+              "[v]",
+
+              "-map",
+              "[a]",
+
+              "-c:v",
+              "libx264",
+
+              "-preset",
+              "veryfast",
+
+              "-crf",
+              "23",
+
+              "-pix_fmt",
+              "yuv420p",
+
+              "-threads",
+              "2",
+
+              "-c:a",
+              "aac",
+
+              "-ar",
+              "48000",
+
+              "-b:a",
+              "192k",
+
+              "-t",
+              String(
+                duracaoNarracao
+              ),
+
+              "-movflags",
+              "+faststart",
+
+              videoBasePath,
+
+            ]
+          );
+
+        } else {
+
+
+          /*
+          |--------------------------------------------------------------------------
+          | Se vídeo IA não tiver áudio:
+          | usar somente nossa narração
+          |--------------------------------------------------------------------------
+          */
+
+          const filtro =
+            [
+              "[0:v]",
+              "setpts=PTS-STARTPTS,",
+              "scale=1080:1920:force_original_aspect_ratio=decrease,",
+              "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,",
+              "tpad=stop_mode=clone:stop_duration=30,",
+              "fps=24,",
+              "format=yuv420p",
+              "[v];",
+
+              "[1:a]volume=1.0,",
+              "aresample=48000,",
+              "asetpts=PTS-STARTPTS",
+              "[a]",
+            ].join("");
+
+
+          await executar(
+            "ffmpeg",
+            [
+
+              "-y",
+
+              "-i",
+              videoIAPath,
+
+              "-i",
+              narracaoPath,
+
+              "-filter_complex",
+              filtro,
+
+              "-map",
+              "[v]",
+
+              "-map",
+              "[a]",
+
+              "-c:v",
+              "libx264",
+
+              "-preset",
+              "veryfast",
+
+              "-crf",
+              "23",
+
+              "-pix_fmt",
+              "yuv420p",
+
+              "-threads",
+              "2",
+
+              "-c:a",
+              "aac",
+
+              "-ar",
+              "48000",
+
+              "-b:a",
+              "192k",
+
+              "-t",
+              String(
+                duracaoNarracao
+              ),
+
+              "-movflags",
+              "+faststart",
+
+              videoBasePath,
+
+            ]
+          );
+
+        }
+
+
+      } else {
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK:
+        | antiga imagem parada
+        |--------------------------------------------------------------------------
+        |
+        | Mantemos caso você queira testar
+        | sem gastar créditos de vídeo.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        const imagemUrl =
+          imagens[0];
+
+
+        const extensao =
+          descobrirExtensao(
+            imagemUrl
+          );
+
+
+        const imagemPath =
+          path.join(
+            pasta,
+            `placeholder.${extensao}`
+          );
+
+
+        await baixarArquivo(
+          imagemUrl,
+          imagemPath
+        );
+
+
+        await executar(
+          "ffmpeg",
+          [
+
+            "-y",
+
+            "-loop",
+            "1",
+
+            "-framerate",
+            "24",
+
+            "-i",
+            imagemPath,
+
+            "-i",
+            narracaoPath,
+
+            "-vf",
+
+            "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p",
+
+            "-c:v",
+            "libx264",
+
+            "-preset",
+            "ultrafast",
+
+            "-crf",
+            "25",
+
+            "-pix_fmt",
+            "yuv420p",
+
+            "-r",
+            "24",
+
+            "-threads",
+            "2",
+
+            "-c:a",
+            "aac",
+
+            "-ar",
+            "48000",
+
+            "-b:a",
+            "128k",
+
+            "-t",
+            String(
+              duracaoNarracao
+            ),
+
+            "-movflags",
+            "+faststart",
+
+            videoBasePath,
+
+          ]
+        );
+
+      }
+
+
+      /*
+      |--------------------------------------------------------------------------
+      | Validar vídeo base
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        !fs.existsSync(
+          videoBasePath
+        )
+      ) {
+
+        throw new Error(
+          "Vídeo base não foi criado."
+        );
+
+      }
+
+
+      const duracaoBase =
+        await obterDuracao(
+          videoBasePath
+        );
+
+
+      console.log(
+        "Duração vídeo base:",
+        duracaoBase
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Final
+      | Arquivo final
       |--------------------------------------------------------------------------
       */
 
@@ -1973,6 +2322,12 @@ app.post(
           `${id}.mp4`
         );
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | Aplicar legenda
+      |--------------------------------------------------------------------------
+      */
 
       if (
         Array.isArray(
@@ -1992,6 +2347,11 @@ app.post(
         criarLegendaTikTok(
           palavras,
           legendaPath
+        );
+
+
+        console.log(
+          "Aplicando legendas..."
         );
 
 
@@ -2028,7 +2388,7 @@ app.post(
 
             "-t",
             String(
-              duracaoAudio
+              duracaoNarracao
             ),
 
             "-movflags",
@@ -2042,6 +2402,12 @@ app.post(
 
       } else {
 
+
+        console.log(
+          "Sem legenda."
+        );
+
+
         fs.copyFileSync(
           videoBasePath,
           outputPath
@@ -2049,6 +2415,12 @@ app.post(
 
       }
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | Resultado
+      |--------------------------------------------------------------------------
+      */
 
       if (
         !fs.existsSync(
@@ -2063,27 +2435,46 @@ app.post(
       }
 
 
-      const duracaoFinal =
-        await obterDuracao(
-          outputPath
-        );
-
-
       const tamanho =
         fs.statSync(
           outputPath
         ).size;
 
 
+      const duracaoFinal =
+        await obterDuracao(
+          outputPath
+        );
+
+
       console.log(
-        "Duração final:",
-        duracaoFinal
+        "============================"
+      );
+
+
+      console.log(
+        "Vídeo final:",
+        duracaoFinal,
+        "segundos"
+      );
+
+
+      console.log(
+        "Trilha IA:",
+        `${Math.round(
+          volumeTrilha * 100
+        )}%`
+      );
+
+
+      console.log(
+        "============================"
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Retornar
+      | Retornar MP4
       |--------------------------------------------------------------------------
       */
 
