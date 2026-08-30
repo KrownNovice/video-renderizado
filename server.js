@@ -193,6 +193,7 @@ function obterDuracao(arquivo) {
               duracao
             )
           ) {
+
             reject(
               new Error(
                 "Não foi possível descobrir a duração."
@@ -257,13 +258,14 @@ function descobrirExtensao(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Formatar tempo ASS
+| Tempo ASS
 |--------------------------------------------------------------------------
 */
 
 function formatarTempoASS(
   segundos
 ) {
+
   const total =
     Math.max(
       0,
@@ -329,6 +331,7 @@ function formatarTempoASS(
 function escaparTextoASS(
   texto
 ) {
+
   return String(
     texto || ""
   )
@@ -353,112 +356,55 @@ function escaparTextoASS(
 
 /*
 |--------------------------------------------------------------------------
-| Tamanho automático da fonte
-|--------------------------------------------------------------------------
-|
-| Se o grupo tiver palavras grandes,
-| diminuímos automaticamente.
-|
+| Detectar valor monetário
 |--------------------------------------------------------------------------
 */
 
-function calcularFonte(grupo) {
+function ehNumeroPreco(texto) {
 
-  const texto =
-    grupo
-      .map(
-        item =>
-          String(
-            item.palavra
-          )
-      )
-      .join(" ");
+  const valor =
+    String(
+      texto || ""
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      );
 
-  const caracteres =
-    texto.length;
-
-
-  /*
-   * Curto
-   */
-  if (
-    caracteres <= 15
-  ) {
-    return {
-      normal: 60,
-      destaque: 68,
-    };
-  }
-
-
-  /*
-   * Médio
-   */
-  if (
-    caracteres <= 22
-  ) {
-    return {
-      normal: 56,
-      destaque: 64,
-    };
-  }
-
-
-  /*
-   * Comprido
-   */
-  if (
-    caracteres <= 29
-  ) {
-    return {
-      normal: 50,
-      destaque: 58,
-    };
-  }
-
-
-  /*
-   * Muito comprido
-   */
-  return {
-    normal: 44,
-    destaque: 52,
-  };
+  return /^\d{1,6}([.,]\d{1,2})?$/.test(
+    valor
+  );
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda TikTok
+| Normalizar palavras e preços
 |--------------------------------------------------------------------------
 |
-| NOVO:
+| Exemplos:
 |
-| - 3 palavras por bloco
-| - fonte menor
-| - tamanho automático
-| - palavra atual amarela
-| - sem texto cortado nas laterais
+| R$ + 39,90
+| vira:
+| R$ 39,90
+|
+| R + $ + 39,90
+| vira:
+| R$ 39,90
+|
+| R$39,90
+| vira:
+| R$ 39,90
 |
 |--------------------------------------------------------------------------
 */
 
-function criarLegendaTikTok(
-  palavras,
-  destino
+function normalizarPalavras(
+  palavras
 ) {
 
-  /*
-   * Antes eram 4.
-   *
-   * Agora 3 para ficar
-   * mais bonito no celular.
-   */
-  const palavrasPorGrupo =
-    3;
-
-
-  const validas =
+  const base =
     palavras
       .filter(
         (item) =>
@@ -483,10 +429,11 @@ function criarLegendaTikTok(
       )
       .map(
         (item) => ({
+
           palavra:
             String(
               item.palavra
-            ),
+            ).trim(),
 
           inicio:
             Number(
@@ -497,6 +444,10 @@ function criarLegendaTikTok(
             Number(
               item.fim
             ),
+
+          preco:
+            false,
+
         })
       )
       .sort(
@@ -504,6 +455,313 @@ function criarLegendaTikTok(
           a.inicio -
           b.inicio
       );
+
+
+  const resultado =
+    [];
+
+
+  for (
+    let i = 0;
+    i < base.length;
+    i++
+  ) {
+
+    const atual =
+      base[i];
+
+    const texto =
+      atual.palavra
+        .replace(
+          /\s/g,
+          ""
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Caso:
+    |
+    | R$39,90
+    |--------------------------------------------------------------------------
+    */
+
+    const precoJunto =
+      texto.match(
+        /^R\$(\d{1,6}(?:[.,]\d{1,2})?)$/i
+      );
+
+
+    if (
+      precoJunto
+    ) {
+
+      resultado.push({
+
+        palavra:
+          `R$ ${precoJunto[1]}`,
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          atual.fim,
+
+        preco:
+          true,
+
+      });
+
+      continue;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Caso:
+    |
+    | R$ + 39,90
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      /^R\$$/i.test(
+        texto
+      ) &&
+      base[i + 1] &&
+      ehNumeroPreco(
+        base[i + 1]
+          .palavra
+      )
+    ) {
+
+      resultado.push({
+
+        palavra:
+          `R$ ${base[i + 1].palavra}`,
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          base[i + 1]
+            .fim,
+
+        preco:
+          true,
+
+      });
+
+
+      i += 1;
+
+      continue;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Caso:
+    |
+    | R + $ + 39,90
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      /^R$/i.test(
+        texto
+      ) &&
+      base[i + 1] &&
+      String(
+        base[i + 1]
+          .palavra
+      ).trim() === "$" &&
+      base[i + 2] &&
+      ehNumeroPreco(
+        base[i + 2]
+          .palavra
+      )
+    ) {
+
+      resultado.push({
+
+        palavra:
+          `R$ ${base[i + 2].palavra}`,
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          base[i + 2]
+            .fim,
+
+        preco:
+          true,
+
+      });
+
+
+      i += 2;
+
+      continue;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Palavra normal
+    |--------------------------------------------------------------------------
+    */
+
+    resultado.push(
+      atual
+    );
+
+  }
+
+
+  return resultado;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Tamanho automático
+|--------------------------------------------------------------------------
+*/
+
+function calcularFonte(
+  grupo
+) {
+
+  const texto =
+    grupo
+      .map(
+        item =>
+          String(
+            item.palavra
+          )
+      )
+      .join(" ");
+
+
+  const caracteres =
+    texto.length;
+
+
+  /*
+   * Grupo contendo preço:
+   * usa um pouco menos.
+   */
+
+  const temPreco =
+    grupo.some(
+      item =>
+        item.preco
+    );
+
+
+  if (
+    temPreco
+  ) {
+
+    if (
+      caracteres <= 16
+    ) {
+      return {
+        normal: 58,
+        destaque: 66,
+      };
+    }
+
+
+    if (
+      caracteres <= 22
+    ) {
+      return {
+        normal: 52,
+        destaque: 60,
+      };
+    }
+
+
+    return {
+      normal: 46,
+      destaque: 54,
+    };
+
+  }
+
+
+  /*
+   * Legenda normal
+   */
+
+  if (
+    caracteres <= 15
+  ) {
+
+    return {
+      normal: 60,
+      destaque: 68,
+    };
+
+  }
+
+
+  if (
+    caracteres <= 22
+  ) {
+
+    return {
+      normal: 56,
+      destaque: 64,
+    };
+
+  }
+
+
+  if (
+    caracteres <= 29
+  ) {
+
+    return {
+      normal: 50,
+      destaque: 58,
+    };
+
+  }
+
+
+  return {
+    normal: 44,
+    destaque: 52,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Criar legenda TikTok
+|--------------------------------------------------------------------------
+*/
+
+function criarLegendaTikTok(
+  palavras,
+  destino
+) {
+
+  const palavrasPorGrupo =
+    3;
+
+
+  /*
+   * Aqui o preço é mesclado.
+   */
+  const validas =
+    normalizarPalavras(
+      palavras
+    );
 
 
   if (
@@ -514,35 +772,32 @@ function criarLegendaTikTok(
     throw new Error(
       "Nenhuma palavra válida para legenda."
     );
+
   }
 
 
   console.log(
-    "Primeira palavra:",
-    validas[0]
+    "Palavras normalizadas:"
   );
 
 
-  console.log(
-    "Última palavra:",
-    validas[
-      validas.length -
-        1
-    ]
+  validas.forEach(
+    item => {
+
+      if (
+        item.preco
+      ) {
+
+        console.log(
+          "PREÇO DETECTADO:",
+          item.palavra
+        );
+
+      }
+
+    }
   );
 
-
-  console.log(
-    "Quantidade:",
-    validas.length
-  );
-
-
-  /*
-  |--------------------------------------------------------------------------
-  | Estilo base
-  |--------------------------------------------------------------------------
-  */
 
   const cabecalho = `[Script Info]
 Title: TikTok Captions
@@ -554,7 +809,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: TikTok,DejaVu Sans,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&H40000000,-1,0,0,0,100,100,0,0,1,5,1,5,100,100,0,1
+Style: TikTok,DejaVu Sans,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&H40000000,-1,0,0,0,100,100,0,0,1,5,1,5,110,110,0,1
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
@@ -566,12 +821,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   /*
   |--------------------------------------------------------------------------
-  | Criar grupos
+  | Grupos de 3
   |--------------------------------------------------------------------------
   */
 
   for (
-    let grupoInicio = 0;
+    let grupoInicio =
+      0;
 
     grupoInicio <
     validas.length;
@@ -589,21 +845,11 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       );
 
 
-    /*
-     * Descobre o melhor tamanho
-     * para esse bloco.
-     */
     const fonte =
       calcularFonte(
         grupo
       );
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Criar evento para cada palavra
-    |--------------------------------------------------------------------------
-    */
 
     for (
       let j = 0;
@@ -645,6 +891,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
         fimEvento =
           atual.fim;
+
       }
 
 
@@ -655,12 +902,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
         fimEvento =
           atual.fim;
+
       }
 
 
       /*
       |--------------------------------------------------------------------------
-      | Montar texto
+      | Montar grupo
       |--------------------------------------------------------------------------
       */
 
@@ -681,14 +929,35 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
               /*
-               * Palavra sendo falada.
-               *
-               * Amarela,
-               * um pouco maior.
+               * Palavra atual.
                */
               if (
-                posicao === j
+                posicao ===
+                j
               ) {
+
+                /*
+                 * Se for preço,
+                 * deixa ele amarelo inteiro.
+                 */
+                if (
+                  item.preco
+                ) {
+
+                  return (
+                    "{\\c&H0000FFFF&" +
+                    `\\fs${fonte.destaque}` +
+                    "\\bord6" +
+                    "}" +
+                    palavra +
+                    "{\\c&H00FFFFFF&" +
+                    `\\fs${fonte.normal}` +
+                    "\\bord5" +
+                    "}"
+                  );
+
+                }
+
 
                 return (
                   "{\\c&H0000FFFF&" +
@@ -701,6 +970,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
                   "\\bord5" +
                   "}"
                 );
+
               }
 
 
@@ -712,11 +982,8 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Posição
+      | Centro
       |--------------------------------------------------------------------------
-      |
-      | Um pouco acima do rodapé.
-      |
       */
 
       const texto =
@@ -726,12 +993,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
         "}" +
         textoGrupo;
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Evento
-      |--------------------------------------------------------------------------
-      */
 
       eventos.push(
         `Dialogue: 0,${formatarTempoASS(
@@ -745,12 +1006,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   }
 
-
-  /*
-  |--------------------------------------------------------------------------
-  | Salvar
-  |--------------------------------------------------------------------------
-  */
 
   fs.writeFileSync(
     destino,
@@ -771,12 +1026,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
   console.log(
     "Eventos:",
     eventos.length
-  );
-
-
-  console.log(
-    "Primeiro:",
-    eventos[0]
   );
 
 }
@@ -811,7 +1060,10 @@ app.get(
         "placeholder-imagem-loop",
 
       legenda:
-        "tiktok-compacta",
+        "tiktok-preco-protegido",
+
+      preco:
+        "R$ + valor unidos",
 
       palavras_por_bloco:
         3,
@@ -820,7 +1072,7 @@ app.get(
         "automatica",
 
       versao:
-        "7.1",
+        "7.2",
 
     });
 
@@ -893,12 +1145,6 @@ app.post(
       } =
         req.body;
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Validar
-      |--------------------------------------------------------------------------
-      */
 
       if (!id) {
 
@@ -984,7 +1230,7 @@ app.post(
 
 
       console.log(
-        "Duração do áudio:",
+        "Duração áudio:",
         duracaoAudio
       );
 
@@ -1020,7 +1266,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Criar vídeo base
+      | Vídeo base
       |--------------------------------------------------------------------------
       */
 
@@ -1031,99 +1277,62 @@ app.post(
         );
 
 
-      console.log(
-        "Criando vídeo base..."
-      );
-
-
       await executar(
         "ffmpeg",
         [
 
           "-y",
 
-
-          /*
-           * Loop da imagem
-           */
           "-loop",
           "1",
-
 
           "-framerate",
           "24",
 
-
           "-i",
           imagemPath,
 
-
-          /*
-           * Áudio
-           */
           "-i",
           audioPath,
 
-
-          /*
-           * Vídeo vertical
-           */
           "-vf",
 
           "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p",
 
-
           "-c:v",
           "libx264",
-
 
           "-preset",
           "ultrafast",
 
-
           "-crf",
           "25",
-
 
           "-pix_fmt",
           "yuv420p",
 
-
           "-r",
           "24",
-
 
           "-threads",
           "2",
 
-
-          /*
-           * Áudio
-           */
           "-c:a",
           "aac",
-
 
           "-ar",
           "48000",
 
-
           "-b:a",
           "128k",
 
-
-          /*
-           * Duração EXATA
-           */
           "-t",
           String(
             duracaoAudio
           ),
 
-
           "-movflags",
           "+faststart",
-
 
           videoBasePath,
 
@@ -1133,25 +1342,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Conferir duração
-      |--------------------------------------------------------------------------
-      */
-
-      const duracaoBase =
-        await obterDuracao(
-          videoBasePath
-        );
-
-
-      console.log(
-        "Vídeo base:",
-        duracaoBase
-      );
-
-
-      /*
-      |--------------------------------------------------------------------------
-      | Arquivo final
+      | Final
       |--------------------------------------------------------------------------
       */
 
@@ -1161,12 +1352,6 @@ app.post(
           `${id}.mp4`
         );
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Aplicar legenda
-      |--------------------------------------------------------------------------
-      */
 
       if (
         Array.isArray(
@@ -1189,73 +1374,44 @@ app.post(
         );
 
 
-        console.log(
-          "Aplicando legenda..."
-        );
-
-
         await executar(
           "ffmpeg",
           [
 
             "-y",
 
-
             "-i",
             videoBasePath,
 
-
-            /*
-             * Reset do PTS.
-             *
-             * Mantemos porque foi isso
-             * que corrigiu a legenda
-             * começando no segundo 13.
-             */
             "-vf",
 
             `setpts=PTS-STARTPTS,subtitles=${legendaPath}`,
 
-
             "-c:v",
             "libx264",
-
 
             "-preset",
             "veryfast",
 
-
             "-crf",
             "23",
-
 
             "-pix_fmt",
             "yuv420p",
 
-
             "-threads",
             "2",
 
-
-            /*
-             * Áudio
-             */
             "-c:a",
             "copy",
 
-
-            /*
-             * Mesma duração da narração.
-             */
             "-t",
             String(
               duracaoAudio
             ),
 
-
             "-movflags",
             "+faststart",
-
 
             outputPath,
 
@@ -1273,12 +1429,6 @@ app.post(
 
       }
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Validar
-      |--------------------------------------------------------------------------
-      */
 
       if (
         !fs.existsSync(
@@ -1306,27 +1456,14 @@ app.post(
 
 
       console.log(
-        "============================"
-      );
-
-      console.log(
         "Duração final:",
         duracaoFinal
-      );
-
-      console.log(
-        "Tamanho:",
-        tamanho
-      );
-
-      console.log(
-        "============================"
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Responder MP4
+      | Retornar
       |--------------------------------------------------------------------------
       */
 
