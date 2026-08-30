@@ -52,7 +52,7 @@ function executar(comando, args) {
 
 /*
 |--------------------------------------------------------------------------
-| Normalizar Google Drive
+| Google Drive
 |--------------------------------------------------------------------------
 */
 
@@ -126,7 +126,7 @@ async function baixarArquivo(url, destino) {
 
 /*
 |--------------------------------------------------------------------------
-| Duração
+| Descobrir duração
 |--------------------------------------------------------------------------
 */
 
@@ -214,7 +214,7 @@ function obterDuracao(arquivo) {
 
 /*
 |--------------------------------------------------------------------------
-| Extensão da imagem
+| Extensão
 |--------------------------------------------------------------------------
 */
 
@@ -264,7 +264,6 @@ function descobrirExtensao(url) {
 function formatarTempoASS(
   segundos
 ) {
-
   const total =
     Math.max(
       0,
@@ -330,7 +329,6 @@ function formatarTempoASS(
 function escaparTextoASS(
   texto
 ) {
-
   return String(
     texto || ""
   )
@@ -355,17 +353,92 @@ function escaparTextoASS(
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda
+| Tamanho automático da fonte
 |--------------------------------------------------------------------------
 |
-| 4 palavras por bloco.
+| Se o grupo tiver palavras grandes,
+| diminuímos automaticamente.
 |
-| A palavra atual:
-| - amarela
-| - maior
+|--------------------------------------------------------------------------
+*/
+
+function calcularFonte(grupo) {
+
+  const texto =
+    grupo
+      .map(
+        item =>
+          String(
+            item.palavra
+          )
+      )
+      .join(" ");
+
+  const caracteres =
+    texto.length;
+
+
+  /*
+   * Curto
+   */
+  if (
+    caracteres <= 15
+  ) {
+    return {
+      normal: 60,
+      destaque: 68,
+    };
+  }
+
+
+  /*
+   * Médio
+   */
+  if (
+    caracteres <= 22
+  ) {
+    return {
+      normal: 56,
+      destaque: 64,
+    };
+  }
+
+
+  /*
+   * Comprido
+   */
+  if (
+    caracteres <= 29
+  ) {
+    return {
+      normal: 50,
+      destaque: 58,
+    };
+  }
+
+
+  /*
+   * Muito comprido
+   */
+  return {
+    normal: 44,
+    destaque: 52,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Criar legenda TikTok
+|--------------------------------------------------------------------------
 |
-| Os timestamps vêm diretamente
-| da OpenAI.
+| NOVO:
+|
+| - 3 palavras por bloco
+| - fonte menor
+| - tamanho automático
+| - palavra atual amarela
+| - sem texto cortado nas laterais
 |
 |--------------------------------------------------------------------------
 */
@@ -375,8 +448,15 @@ function criarLegendaTikTok(
   destino
 ) {
 
+  /*
+   * Antes eram 4.
+   *
+   * Agora 3 para ficar
+   * mais bonito no celular.
+   */
   const palavrasPorGrupo =
-    4;
+    3;
+
 
   const validas =
     palavras
@@ -442,6 +522,7 @@ function criarLegendaTikTok(
     validas[0]
   );
 
+
   console.log(
     "Última palavra:",
     validas[
@@ -450,6 +531,18 @@ function criarLegendaTikTok(
     ]
   );
 
+
+  console.log(
+    "Quantidade:",
+    validas.length
+  );
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Estilo base
+  |--------------------------------------------------------------------------
+  */
 
   const cabecalho = `[Script Info]
 Title: TikTok Captions
@@ -461,7 +554,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: TikTok,DejaVu Sans,82,&H00FFFFFF,&H00FFFFFF,&H00000000,&H50000000,-1,0,0,0,100,100,1,0,1,7,2,5,70,70,0,1
+Style: TikTok,DejaVu Sans,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&H40000000,-1,0,0,0,100,100,0,0,1,5,1,5,100,100,0,1
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
@@ -473,13 +566,12 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   /*
   |--------------------------------------------------------------------------
-  | Grupos
+  | Criar grupos
   |--------------------------------------------------------------------------
   */
 
   for (
-    let grupoInicio =
-      0;
+    let grupoInicio = 0;
 
     grupoInicio <
     validas.length;
@@ -498,8 +590,18 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
     /*
+     * Descobre o melhor tamanho
+     * para esse bloco.
+     */
+    const fonte =
+      calcularFonte(
+        grupo
+      );
+
+
+    /*
     |--------------------------------------------------------------------------
-    | Evento para cada palavra
+    | Criar evento para cada palavra
     |--------------------------------------------------------------------------
     */
 
@@ -514,6 +616,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       const atual =
         grupo[j];
+
 
       const indiceGlobal =
         grupoInicio + j;
@@ -557,7 +660,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Texto
+      | Montar texto
       |--------------------------------------------------------------------------
       */
 
@@ -578,20 +681,25 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
               /*
-               * Palavra atual
+               * Palavra sendo falada.
+               *
+               * Amarela,
+               * um pouco maior.
                */
               if (
-                posicao ===
-                j
+                posicao === j
               ) {
 
                 return (
                   "{\\c&H0000FFFF&" +
-                  "\\fs94" +
-                  "\\bord8" +
+                  `\\fs${fonte.destaque}` +
+                  "\\bord6" +
                   "}" +
                   palavra +
-                  "{\\rTikTok}"
+                  "{\\c&H00FFFFFF&" +
+                  `\\fs${fonte.normal}` +
+                  "\\bord5" +
+                  "}"
                 );
               }
 
@@ -603,12 +711,27 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       /*
-       * Centro / parte baixa.
-       */
+      |--------------------------------------------------------------------------
+      | Posição
+      |--------------------------------------------------------------------------
+      |
+      | Um pouco acima do rodapé.
+      |
+      */
+
       const texto =
-        "{\\an5\\pos(540,1320)}" +
+        "{\\an5" +
+        "\\pos(540,1330)" +
+        `\\fs${fonte.normal}` +
+        "}" +
         textoGrupo;
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | Evento
+      |--------------------------------------------------------------------------
+      */
 
       eventos.push(
         `Dialogue: 0,${formatarTempoASS(
@@ -622,6 +745,12 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   }
 
+
+  /*
+  |--------------------------------------------------------------------------
+  | Salvar
+  |--------------------------------------------------------------------------
+  */
 
   fs.writeFileSync(
     destino,
@@ -638,15 +767,18 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
     "Legenda criada."
   );
 
+
   console.log(
     "Eventos:",
     eventos.length
   );
 
+
   console.log(
     "Primeiro:",
     eventos[0]
   );
+
 }
 
 
@@ -679,10 +811,16 @@ app.get(
         "placeholder-imagem-loop",
 
       legenda:
-        "timestamps-reais",
+        "tiktok-compacta",
+
+      palavras_por_bloco:
+        3,
+
+      fonte:
+        "automatica",
 
       versao:
-        "7.0",
+        "7.1",
 
     });
 
@@ -846,22 +984,14 @@ app.post(
 
 
       console.log(
-        "Áudio:",
-        duracaoAudio,
-        "segundos"
+        "Duração do áudio:",
+        duracaoAudio
       );
 
 
       /*
       |--------------------------------------------------------------------------
       | Placeholder
-      |--------------------------------------------------------------------------
-      |
-      | Agora usamos SOMENTE a primeira imagem.
-      |
-      | Ela será substituída depois
-      | pelo vídeo produzido pela IA.
-      |
       |--------------------------------------------------------------------------
       */
 
@@ -890,12 +1020,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Vídeo base
-      |--------------------------------------------------------------------------
-      |
-      | A imagem fica em loop durante
-      | EXATAMENTE a duração do áudio.
-      |
+      | Criar vídeo base
       |--------------------------------------------------------------------------
       */
 
@@ -907,9 +1032,7 @@ app.post(
 
 
       console.log(
-        "Criando placeholder de",
-        duracaoAudio,
-        "segundos..."
+        "Criando vídeo base..."
       );
 
 
@@ -921,22 +1044,16 @@ app.post(
 
 
           /*
-           * LOOP DA IMAGEM
+           * Loop da imagem
            */
           "-loop",
           "1",
 
 
-          /*
-           * FPS da imagem
-           */
           "-framerate",
           "24",
 
 
-          /*
-           * Imagem
-           */
           "-i",
           imagemPath,
 
@@ -956,9 +1073,6 @@ app.post(
           "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p",
 
 
-          /*
-           * Vídeo
-           */
           "-c:v",
           "libx264",
 
@@ -999,9 +1113,7 @@ app.post(
 
 
           /*
-           * DURAÇÃO EXATA
-           *
-           * Esse é o ponto principal.
+           * Duração EXATA
            */
           "-t",
           String(
@@ -1033,8 +1145,7 @@ app.post(
 
       console.log(
         "Vídeo base:",
-        duracaoBase,
-        "segundos"
+        duracaoBase
       );
 
 
@@ -1053,7 +1164,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Legenda
+      | Aplicar legenda
       |--------------------------------------------------------------------------
       */
 
@@ -1095,10 +1206,11 @@ app.post(
 
 
             /*
-             * Reset de PTS
+             * Reset do PTS.
              *
-             * Este foi o que resolveu
-             * a legenda começando tarde.
+             * Mantemos porque foi isso
+             * que corrigiu a legenda
+             * começando no segundo 13.
              */
             "-vf",
 
@@ -1126,15 +1238,14 @@ app.post(
 
 
             /*
-             * Copiar áudio
+             * Áudio
              */
             "-c:a",
             "copy",
 
 
             /*
-             * Mantém exatamente
-             * o tamanho do áudio.
+             * Mesma duração da narração.
              */
             "-t",
             String(
@@ -1165,7 +1276,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Validar final
+      | Validar
       |--------------------------------------------------------------------------
       */
 
@@ -1215,7 +1326,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Retornar MP4
+      | Responder MP4
       |--------------------------------------------------------------------------
       */
 
