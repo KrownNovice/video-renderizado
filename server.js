@@ -29,6 +29,7 @@ function executar(comando, args) {
       const texto = data.toString();
 
       erro += texto;
+
       console.log(texto);
     });
 
@@ -201,9 +202,7 @@ function descobrirExtensao(url) {
     .split("?")[0]
     .toLowerCase();
 
-  if (
-    limpa.endsWith(".png")
-  ) {
+  if (limpa.endsWith(".png")) {
     return "png";
   }
 
@@ -214,9 +213,7 @@ function descobrirExtensao(url) {
     return "jpg";
   }
 
-  if (
-    limpa.endsWith(".webp")
-  ) {
+  if (limpa.endsWith(".webp")) {
     return "webp";
   }
 
@@ -226,7 +223,7 @@ function descobrirExtensao(url) {
 
 /*
 |--------------------------------------------------------------------------
-| Tempo das legendas
+| Formatar tempo ASS
 |--------------------------------------------------------------------------
 */
 
@@ -306,7 +303,14 @@ function escaparTextoASS(texto) {
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda
+| Criar legenda TikTok
+|--------------------------------------------------------------------------
+|
+| - Usa timestamps REAIS da OpenAI
+| - 4 palavras ficam visíveis
+| - Palavra atual fica amarela e maior
+| - Cada palavra tem seu próprio evento
+|
 |--------------------------------------------------------------------------
 */
 
@@ -355,9 +359,7 @@ function criarLegendaTikTok(
     );
 
 
-  if (
-    validas.length === 0
-  ) {
+  if (validas.length === 0) {
     throw new Error(
       "Nenhuma palavra válida para criar legenda."
     );
@@ -367,6 +369,13 @@ function criarLegendaTikTok(
   console.log(
     "Primeira palavra:",
     validas[0]
+  );
+
+  console.log(
+    "Última palavra:",
+    validas[
+      validas.length - 1
+    ]
   );
 
   console.log(
@@ -396,16 +405,14 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   /*
   |--------------------------------------------------------------------------
-  | Criar grupos de 4 palavras
+  | Grupos de 4 palavras
   |--------------------------------------------------------------------------
   */
 
   for (
     let grupoInicio = 0;
-    grupoInicio <
-      validas.length;
-    grupoInicio +=
-      palavrasPorGrupo
+    grupoInicio < validas.length;
+    grupoInicio += palavrasPorGrupo
   ) {
 
     const grupo =
@@ -418,14 +425,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
     /*
     |--------------------------------------------------------------------------
-    | Cada palavra recebe um evento real
+    | Um evento por palavra
     |--------------------------------------------------------------------------
     */
 
     for (
       let j = 0;
-      j <
-        grupo.length;
+      j < grupo.length;
       j++
     ) {
 
@@ -444,7 +450,8 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       /*
-       * Mantém até a próxima palavra.
+       * A legenda atual continua
+       * até a próxima palavra começar.
        */
       if (
         indiceGlobal + 1 <
@@ -464,7 +471,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       /*
-       * Segurança
+       * Segurança para tempos iguais.
        */
       if (
         fimEvento <=
@@ -478,7 +485,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
       /*
       |--------------------------------------------------------------------------
-      | Montar as 4 palavras
+      | Montar texto
       |--------------------------------------------------------------------------
       */
 
@@ -498,8 +505,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
               /*
-               * Palavra atual:
-               * AMARELA + maior
+               * Palavra falada agora.
                */
               if (
                 posicao === j
@@ -516,9 +522,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
               }
 
 
-              /*
-               * Palavras restantes
-               */
               return palavra;
             }
           )
@@ -526,21 +529,12 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       /*
-      |--------------------------------------------------------------------------
-      | Centralizar
-      |--------------------------------------------------------------------------
-      */
-
+       * Centralizado.
+       */
       const texto =
         "{\\an5\\pos(540,1320)}" +
         textoGrupo;
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Evento ASS
-      |--------------------------------------------------------------------------
-      */
 
       eventos.push(
         `Dialogue: 0,${formatarTempoASS(
@@ -565,7 +559,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
   console.log(
-    "Arquivo de legenda:",
+    "Legenda criada:",
     destino
   );
 
@@ -575,7 +569,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
   );
 
   console.log(
-    "Quantidade eventos:",
+    "Eventos:",
     eventos.length
   );
 }
@@ -595,6 +589,7 @@ app.get(
   ) => {
 
     res.json({
+
       status:
         "online",
 
@@ -605,10 +600,14 @@ app.get(
         true,
 
       legenda:
-        "timestamps-resetados",
+        "timestamps-reais",
+
+      duracao:
+        "corrigida",
 
       versao:
-        "6.0",
+        "6.1",
+
     });
   }
 );
@@ -630,13 +629,14 @@ app.get(
     res.json({
       ok: true,
     });
+
   }
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Renderizar vídeo
+| Render
 |--------------------------------------------------------------------------
 */
 
@@ -675,7 +675,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Validação
+      | Validar
       |--------------------------------------------------------------------------
       */
 
@@ -687,6 +687,7 @@ app.post(
             erro:
               "ID não informado",
           });
+
       }
 
 
@@ -704,6 +705,7 @@ app.post(
             erro:
               "Nenhuma imagem informada",
           });
+
       }
 
 
@@ -715,11 +717,12 @@ app.post(
             erro:
               "Áudio não informado",
           });
+
       }
 
 
       console.log(
-        "================================"
+        "=============================="
       );
 
       console.log(
@@ -738,13 +741,17 @@ app.post(
 
       console.log(
         "Palavras:",
-        palavras.length
+        Array.isArray(
+          palavras
+        )
+          ? palavras.length
+          : 0
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Áudio
+      | Baixar áudio
       |--------------------------------------------------------------------------
       */
 
@@ -763,7 +770,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | Imagens
+      | Baixar imagens
       |--------------------------------------------------------------------------
       */
 
@@ -800,6 +807,7 @@ app.post(
         imagensLocais.push(
           destino
         );
+
       }
 
 
@@ -816,19 +824,31 @@ app.post(
 
 
       console.log(
-        "Duração:",
+        "Duração do áudio:",
         duracaoAudio
       );
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | Duração de cada imagem
+      |--------------------------------------------------------------------------
+      */
 
       const duracaoImagem =
         duracaoAudio /
         imagensLocais.length;
 
 
+      console.log(
+        "Duração por imagem:",
+        duracaoImagem
+      );
+
+
       /*
       |--------------------------------------------------------------------------
-      | Concat
+      | Arquivo concat
       |--------------------------------------------------------------------------
       */
 
@@ -860,9 +880,15 @@ app.post(
 
         concat +=
           `duration ${duracaoImagem}\n`;
+
       }
 
 
+      /*
+       * Repetir a última imagem
+       * é necessário para concat
+       * respeitar sua duração.
+       */
       const ultimaImagem =
         imagensLocais[
           imagensLocais.length -
@@ -884,11 +910,20 @@ app.post(
       );
 
 
+      console.log(
+        "Concat criado:"
+      );
+
+      console.log(
+        concat
+      );
+
+
       /*
       |--------------------------------------------------------------------------
       | ETAPA 1
       |
-      | Vídeo base com TEMPO RESETADO
+      | Criar vídeo base
       |--------------------------------------------------------------------------
       */
 
@@ -900,7 +935,7 @@ app.post(
 
 
       console.log(
-        "Criando vídeo base..."
+        "ETAPA 1 - vídeo base..."
       );
 
 
@@ -912,36 +947,32 @@ app.post(
 
 
           /*
-           * Gerar timestamps
+           * NÃO usar +genpts aqui.
+           *
+           * Ele estava destruindo a duração
+           * do concat das imagens.
            */
-          "-fflags",
-          "+genpts",
 
 
-          /*
-           * Imagens
-           */
           "-f",
           "concat",
 
+
           "-safe",
           "0",
+
 
           "-i",
           concatPath,
 
 
-          /*
-           * Áudio
-           */
           "-i",
           audioPath,
 
 
           /*
-           * IMPORTANTÍSSIMO
-           *
-           * Reset do relógio do vídeo.
+           * Resetamos apenas PTS,
+           * sem recriar timestamps.
            */
           "-vf",
 
@@ -949,7 +980,7 @@ app.post(
 
 
           /*
-           * Reset do relógio do áudio.
+           * Áudio também começa no 0.
            */
           "-af",
 
@@ -962,11 +993,14 @@ app.post(
           "-c:v",
           "libx264",
 
+
           "-preset",
           "ultrafast",
 
+
           "-crf",
           "25",
+
 
           "-threads",
           "2",
@@ -978,31 +1012,28 @@ app.post(
           "-c:a",
           "aac",
 
+
           "-ar",
           "48000",
+
 
           "-b:a",
           "128k",
 
 
           /*
-           * FPS constante
+           * Terminar junto com
+           * o stream mais curto.
            */
-          "-fps_mode",
-          "cfr",
+          "-shortest",
 
 
           /*
-           * Eliminar timestamp negativo
+           * Evitar timestamps negativos
+           * sem recriar PTS.
            */
           "-avoid_negative_ts",
           "make_zero",
-
-
-          /*
-           * Finalizar no menor stream
-           */
-          "-shortest",
 
 
           "-movflags",
@@ -1010,6 +1041,7 @@ app.post(
 
 
           videoBasePath,
+
         ]
       );
 
@@ -1023,11 +1055,19 @@ app.post(
         throw new Error(
           "Vídeo base não foi criado."
         );
+
       }
 
 
+      const duracaoVideoBase =
+        await obterDuracaoAudio(
+          videoBasePath
+        );
+
+
       console.log(
-        "Vídeo base criado."
+        "Duração vídeo base:",
+        duracaoVideoBase
       );
 
 
@@ -1048,7 +1088,7 @@ app.post(
       |--------------------------------------------------------------------------
       | ETAPA 2
       |
-      | Aplicar legenda sobre vídeo com PTS RESETADO
+      | Aplicar legendas
       |--------------------------------------------------------------------------
       */
 
@@ -1074,7 +1114,7 @@ app.post(
 
 
         console.log(
-          "Aplicando legenda..."
+          "ETAPA 2 - legendas..."
         );
 
 
@@ -1086,10 +1126,8 @@ app.post(
 
 
             /*
-             * Gerar timestamps novamente
+             * NÃO usar +genpts aqui.
              */
-            "-fflags",
-            "+genpts",
 
 
             "-i",
@@ -1097,9 +1135,8 @@ app.post(
 
 
             /*
-             * RESETAR NOVAMENTE
-             *
-             * Depois aplicar legenda.
+             * Reset do relógio,
+             * depois aplica legenda.
              */
             "-vf",
 
@@ -1123,16 +1160,12 @@ app.post(
 
 
             /*
-             * Áudio não precisa
-             * ser reencodado.
+             * Copiar áudio.
              */
             "-c:a",
             "copy",
 
 
-            /*
-             * Timestamp zero
-             */
             "-avoid_negative_ts",
             "make_zero",
 
@@ -1142,12 +1175,8 @@ app.post(
 
 
             outputPath,
+
           ]
-        );
-
-
-        console.log(
-          "Legenda aplicada."
         );
 
 
@@ -1155,7 +1184,7 @@ app.post(
 
 
         console.log(
-          "Sem legendas."
+          "Nenhuma legenda recebida."
         );
 
 
@@ -1163,12 +1192,13 @@ app.post(
           videoBasePath,
           outputPath
         );
+
       }
 
 
       /*
       |--------------------------------------------------------------------------
-      | Validar MP4
+      | Validar resultado
       |--------------------------------------------------------------------------
       */
 
@@ -1181,6 +1211,7 @@ app.post(
         throw new Error(
           "MP4 final não foi criado."
         );
+
       }
 
 
@@ -1190,16 +1221,39 @@ app.post(
         ).size;
 
 
+      const duracaoFinal =
+        await obterDuracaoAudio(
+          outputPath
+        );
+
+
       console.log(
-        "MP4:",
+        "=============================="
+      );
+
+      console.log(
+        "Vídeo pronto"
+      );
+
+      console.log(
+        "Tamanho:",
         tamanho,
         "bytes"
+      );
+
+      console.log(
+        "Duração final:",
+        duracaoFinal
+      );
+
+      console.log(
+        "=============================="
       );
 
 
       /*
       |--------------------------------------------------------------------------
-      | Enviar arquivo
+      | Retornar MP4
       |--------------------------------------------------------------------------
       */
 
@@ -1304,16 +1358,20 @@ app.post(
 
             detalhes:
               error.message,
+
           });
+
       }
+
     }
+
   }
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Servidor
+| Iniciar servidor
 |--------------------------------------------------------------------------
 */
 
