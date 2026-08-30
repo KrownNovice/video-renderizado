@@ -114,19 +114,12 @@ async function baixarArquivo(url, destino) {
     destino,
     resposta.data
   );
-
-  console.log(
-    "Arquivo salvo:",
-    destino,
-    resposta.data.length,
-    "bytes"
-  );
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Descobrir duração
+| Duração
 |--------------------------------------------------------------------------
 */
 
@@ -193,7 +186,6 @@ function obterDuracao(arquivo) {
               duracao
             )
           ) {
-
             reject(
               new Error(
                 "Não foi possível descobrir a duração."
@@ -226,28 +218,20 @@ function descobrirExtensao(url) {
       .toLowerCase();
 
   if (
-    limpa.endsWith(
-      ".png"
-    )
+    limpa.endsWith(".png")
   ) {
     return "png";
   }
 
   if (
-    limpa.endsWith(
-      ".jpg"
-    ) ||
-    limpa.endsWith(
-      ".jpeg"
-    )
+    limpa.endsWith(".jpg") ||
+    limpa.endsWith(".jpeg")
   ) {
     return "jpg";
   }
 
   if (
-    limpa.endsWith(
-      ".webp"
-    )
+    limpa.endsWith(".webp")
   ) {
     return "webp";
   }
@@ -262,41 +246,29 @@ function descobrirExtensao(url) {
 |--------------------------------------------------------------------------
 */
 
-function formatarTempoASS(
-  segundos
-) {
-
+function formatarTempoASS(segundos) {
   const total =
     Math.max(
       0,
       Math.round(
-        Number(
-          segundos
-        ) * 100
+        Number(segundos) * 100
       )
     );
 
   const horas =
     Math.floor(
-      total /
-        360000
+      total / 360000
     );
 
   const minutos =
     Math.floor(
-      (
-        total %
-        360000
-      ) /
+      (total % 360000) /
         6000
     );
 
   const segundosInteiros =
     Math.floor(
-      (
-        total %
-        6000
-      ) /
+      (total % 6000) /
         100
     );
 
@@ -324,17 +296,12 @@ function formatarTempoASS(
 
 /*
 |--------------------------------------------------------------------------
-| Escapar texto ASS
+| Escapar ASS
 |--------------------------------------------------------------------------
 */
 
-function escaparTextoASS(
-  texto
-) {
-
-  return String(
-    texto || ""
-  )
+function escaparTextoASS(texto) {
+  return String(texto || "")
     .replace(
       /\\/g,
       "\\\\"
@@ -356,15 +323,461 @@ function escaparTextoASS(
 
 /*
 |--------------------------------------------------------------------------
-| Detectar valor monetário
+| Normalizar texto
 |--------------------------------------------------------------------------
 */
 
-function ehNumeroPreco(texto) {
+function normalizarTexto(texto) {
+  return String(
+    texto || ""
+  )
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /^[.,;:!?]+|[.,;:!?]+$/g,
+      ""
+    )
+    .trim();
+}
 
-  const valor =
+
+/*
+|--------------------------------------------------------------------------
+| Números escritos em português
+|--------------------------------------------------------------------------
+*/
+
+const unidades = {
+  zero: 0,
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  catorze: 14,
+  quatorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezasseis: 16,
+  dezessete: 17,
+  dezassete: 17,
+  dezoito: 18,
+  dezenove: 19,
+};
+
+const dezenas = {
+  vinte: 20,
+  trinta: 30,
+  quarenta: 40,
+  cinquenta: 50,
+  sessenta: 60,
+  setenta: 70,
+  oitenta: 80,
+  noventa: 90,
+};
+
+const centenas = {
+  cem: 100,
+  cento: 100,
+  duzentos: 200,
+  duzentas: 200,
+  trezentos: 300,
+  trezentas: 300,
+  quatrocentos: 400,
+  quatrocentas: 400,
+  quinhentos: 500,
+  quinhentas: 500,
+  seiscentos: 600,
+  seiscentas: 600,
+  setecentos: 700,
+  setecentas: 700,
+  oitocentos: 800,
+  oitocentas: 800,
+  novecentos: 900,
+  novecentas: 900,
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| Converter palavras para número
+|--------------------------------------------------------------------------
+*/
+
+function palavrasParaNumero(tokens) {
+  if (
+    !tokens ||
+    tokens.length === 0
+  ) {
+    return null;
+  }
+
+  let total = 0;
+  let atual = 0;
+  let encontrou = false;
+
+  for (
+    const tokenOriginal
+    of tokens
+  ) {
+
+    const token =
+      normalizarTexto(
+        tokenOriginal
+      );
+
+    if (
+      token === "e"
+    ) {
+      continue;
+    }
+
+
+    /*
+     * Número já veio em algarismo.
+     */
+    if (
+      /^\d+$/.test(
+        token
+      )
+    ) {
+
+      atual +=
+        Number(token);
+
+      encontrou =
+        true;
+
+      continue;
+    }
+
+
+    if (
+      Object.prototype
+        .hasOwnProperty.call(
+          unidades,
+          token
+        )
+    ) {
+
+      atual +=
+        unidades[token];
+
+      encontrou =
+        true;
+
+      continue;
+    }
+
+
+    if (
+      Object.prototype
+        .hasOwnProperty.call(
+          dezenas,
+          token
+        )
+    ) {
+
+      atual +=
+        dezenas[token];
+
+      encontrou =
+        true;
+
+      continue;
+    }
+
+
+    if (
+      Object.prototype
+        .hasOwnProperty.call(
+          centenas,
+          token
+        )
+    ) {
+
+      atual +=
+        centenas[token];
+
+      encontrou =
+        true;
+
+      continue;
+    }
+
+
+    if (
+      token === "mil"
+    ) {
+
+      if (
+        atual === 0
+      ) {
+        atual = 1;
+      }
+
+      total +=
+        atual * 1000;
+
+      atual = 0;
+
+      encontrou =
+        true;
+
+      continue;
+    }
+
+
+    return null;
+  }
+
+
+  if (
+    !encontrou
+  ) {
+    return null;
+  }
+
+
+  return total + atual;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| É parte de número falado?
+|--------------------------------------------------------------------------
+*/
+
+function ehParteNumero(texto) {
+  const token =
+    normalizarTexto(
+      texto
+    );
+
+  if (
+    token === "e"
+  ) {
+    return true;
+  }
+
+  if (
+    /^\d+$/.test(
+      token
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    Object.prototype
+      .hasOwnProperty.call(
+        unidades,
+        token
+      )
+  ) {
+    return true;
+  }
+
+  if (
+    Object.prototype
+      .hasOwnProperty.call(
+        dezenas,
+        token
+      )
+  ) {
+    return true;
+  }
+
+  if (
+    Object.prototype
+      .hasOwnProperty.call(
+        centenas,
+        token
+      )
+  ) {
+    return true;
+  }
+
+  if (
+    token === "mil"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Formatar preço
+|--------------------------------------------------------------------------
+*/
+
+function formatarPreco(
+  reais,
+  centavos = 0
+) {
+
+  const valorReais =
+    Math.max(
+      0,
+      Number(reais) || 0
+    );
+
+  const valorCentavos =
+    Math.max(
+      0,
+      Number(centavos) || 0
+    );
+
+
+  return (
+    "R$ " +
+    valorReais +
+    "," +
     String(
-      texto || ""
+      valorCentavos
+    ).padStart(
+      2,
+      "0"
+    )
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Detectar preço já numérico
+|--------------------------------------------------------------------------
+*/
+
+function tentarPrecoNumerico(
+  base,
+  indice
+) {
+
+  const atual =
+    base[indice];
+
+  const compacto =
+    String(
+      atual.palavra
+    )
+      .replace(
+        /\s/g,
+        ""
+      );
+
+
+  /*
+   * R$39,90
+   */
+  const junto =
+    compacto.match(
+      /^R\$(\d{1,6})(?:[.,](\d{1,2}))?$/i
+    );
+
+
+  if (
+    junto
+  ) {
+
+    return {
+
+      item: {
+        palavra:
+          formatarPreco(
+            junto[1],
+            junto[2] || 0
+          ),
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          atual.fim,
+
+        preco:
+          true,
+      },
+
+      ultimoIndice:
+        indice,
+
+    };
+
+  }
+
+
+  /*
+   * R$
+   * ou
+   * R + $
+   */
+  let cursor =
+    indice;
+
+
+  if (
+    /^R\$$/i.test(
+      compacto
+    )
+  ) {
+
+    cursor =
+      indice + 1;
+
+  } else if (
+    /^R$/i.test(
+      compacto
+    ) &&
+    base[
+      indice + 1
+    ] &&
+    String(
+      base[
+        indice + 1
+      ].palavra
+    ).trim() === "$"
+  ) {
+
+    cursor =
+      indice + 2;
+
+  } else {
+
+    return null;
+
+  }
+
+
+  if (
+    !base[cursor]
+  ) {
+    return null;
+  }
+
+
+  const primeiro =
+    String(
+      base[cursor]
+        .palavra
     )
       .trim()
       .replace(
@@ -372,31 +785,397 @@ function ehNumeroPreco(texto) {
         ""
       );
 
-  return /^\d{1,6}([.,]\d{1,2})?$/.test(
-    valor
-  );
+
+  /*
+   * 39,90
+   */
+  const valorCompleto =
+    primeiro.match(
+      /^(\d{1,6})[.,](\d{1,2})$/
+    );
+
+
+  if (
+    valorCompleto
+  ) {
+
+    return {
+
+      item: {
+        palavra:
+          formatarPreco(
+            valorCompleto[1],
+            valorCompleto[2]
+          ),
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          base[cursor].fim,
+
+        preco:
+          true,
+      },
+
+      ultimoIndice:
+        cursor,
+
+    };
+
+  }
+
+
+  /*
+   * 39 + 90
+   *
+   * Whisper às vezes separa
+   * reais e centavos.
+   */
+  if (
+    /^\d{1,6}$/.test(
+      primeiro
+    )
+  ) {
+
+    const reais =
+      Number(
+        primeiro
+      );
+
+    let centavos =
+      0;
+
+    let ultimo =
+      cursor;
+
+
+    const proximo =
+      base[
+        cursor + 1
+      ];
+
+
+    if (
+      proximo
+    ) {
+
+      const textoProximo =
+        String(
+          proximo.palavra
+        )
+          .trim()
+          .replace(
+            /^[,.]/,
+            ""
+          );
+
+
+      /*
+       * R$ 39 90
+       */
+      if (
+        /^\d{1,2}$/.test(
+          textoProximo
+        ) &&
+        Number(
+          textoProximo
+        ) <= 99
+      ) {
+
+        centavos =
+          Number(
+            textoProximo
+          );
+
+        ultimo =
+          cursor + 1;
+      }
+
+    }
+
+
+    return {
+
+      item: {
+        palavra:
+          formatarPreco(
+            reais,
+            centavos
+          ),
+
+        inicio:
+          atual.inicio,
+
+        fim:
+          base[ultimo].fim,
+
+        preco:
+          true,
+      },
+
+      ultimoIndice:
+        ultimo,
+
+    };
+
+  }
+
+
+  return null;
 }
 
 
 /*
 |--------------------------------------------------------------------------
-| Normalizar palavras e preços
+| Detectar:
+|
+| trinta e nove reais
+| trinta e nove reais e noventa centavos
+| 39 reais e 90 centavos
 |--------------------------------------------------------------------------
-|
-| Exemplos:
-|
-| R$ + 39,90
-| vira:
-| R$ 39,90
-|
-| R + $ + 39,90
-| vira:
-| R$ 39,90
-|
-| R$39,90
-| vira:
-| R$ 39,90
-|
+*/
+
+function tentarPrecoFalado(
+  base,
+  indice
+) {
+
+  if (
+    !base[indice] ||
+    !ehParteNumero(
+      base[indice]
+        .palavra
+    )
+  ) {
+    return null;
+  }
+
+
+  const palavrasReais =
+    [];
+
+  let cursor =
+    indice;
+
+  let encontrouReais =
+    false;
+
+
+  /*
+   * Procurar "real/reais".
+   */
+  while (
+    cursor <
+      base.length &&
+    cursor <
+      indice + 10
+  ) {
+
+    const token =
+      normalizarTexto(
+        base[cursor]
+          .palavra
+      );
+
+
+    if (
+      token === "real" ||
+      token === "reais"
+    ) {
+
+      encontrouReais =
+        true;
+
+      break;
+    }
+
+
+    if (
+      !ehParteNumero(
+        token
+      )
+    ) {
+      return null;
+    }
+
+
+    palavrasReais.push(
+      token
+    );
+
+
+    cursor++;
+  }
+
+
+  if (
+    !encontrouReais
+  ) {
+    return null;
+  }
+
+
+  const reais =
+    palavrasParaNumero(
+      palavrasReais
+    );
+
+
+  if (
+    reais === null
+  ) {
+    return null;
+  }
+
+
+  const indiceReais =
+    cursor;
+
+  cursor++;
+
+
+  /*
+   * Depois de "reais"
+   * pode vir:
+   *
+   * e noventa centavos
+   */
+  if (
+    base[cursor] &&
+    normalizarTexto(
+      base[cursor]
+        .palavra
+    ) === "e"
+  ) {
+    cursor++;
+  }
+
+
+  const inicioCentavos =
+    cursor;
+
+  const palavrasCentavos =
+    [];
+
+  let encontrouCentavos =
+    false;
+
+
+  while (
+    cursor <
+      base.length &&
+    cursor <
+      inicioCentavos + 8
+  ) {
+
+    const token =
+      normalizarTexto(
+        base[cursor]
+          .palavra
+      );
+
+
+    if (
+      token === "centavo" ||
+      token === "centavos"
+    ) {
+
+      encontrouCentavos =
+        true;
+
+      break;
+    }
+
+
+    if (
+      !ehParteNumero(
+        token
+      )
+    ) {
+      break;
+    }
+
+
+    palavrasCentavos.push(
+      token
+    );
+
+
+    cursor++;
+  }
+
+
+  let centavos =
+    0;
+
+  let ultimoIndice =
+    indiceReais;
+
+
+  if (
+    encontrouCentavos &&
+    palavrasCentavos.length >
+      0
+  ) {
+
+    const valorCentavos =
+      palavrasParaNumero(
+        palavrasCentavos
+      );
+
+
+    if (
+      valorCentavos !==
+        null
+    ) {
+
+      centavos =
+        Math.min(
+          99,
+          valorCentavos
+        );
+
+      ultimoIndice =
+        cursor;
+    }
+
+  }
+
+
+  return {
+
+    item: {
+
+      palavra:
+        formatarPreco(
+          reais,
+          centavos
+        ),
+
+      inicio:
+        base[indice]
+          .inicio,
+
+      fim:
+        base[
+          ultimoIndice
+        ].fim,
+
+      preco:
+        true,
+
+    },
+
+    ultimoIndice,
+
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Normalizar palavras
 |--------------------------------------------------------------------------
 */
 
@@ -467,154 +1246,80 @@ function normalizarPalavras(
     i++
   ) {
 
-    const atual =
-      base[i];
-
-    const texto =
-      atual.palavra
-        .replace(
-          /\s/g,
-          ""
-        );
-
-
     /*
-    |--------------------------------------------------------------------------
-    | Caso:
-    |
-    | R$39,90
-    |--------------------------------------------------------------------------
-    */
-
-    const precoJunto =
-      texto.match(
-        /^R\$(\d{1,6}(?:[.,]\d{1,2})?)$/i
+     * Primeiro:
+     * preço com R$.
+     */
+    const numerico =
+      tentarPrecoNumerico(
+        base,
+        i
       );
 
 
     if (
-      precoJunto
+      numerico
     ) {
 
-      resultado.push({
+      resultado.push(
+        numerico.item
+      );
 
-        palavra:
-          `R$ ${precoJunto[1]}`,
+      console.log(
+        "PREÇO NUMÉRICO:",
+        numerico.item
+          .palavra
+      );
 
-        inicio:
-          atual.inicio,
 
-        fim:
-          atual.fim,
-
-        preco:
-          true,
-
-      });
+      i =
+        numerico
+          .ultimoIndice;
 
       continue;
     }
 
 
     /*
-    |--------------------------------------------------------------------------
-    | Caso:
-    |
-    | R$ + 39,90
-    |--------------------------------------------------------------------------
-    */
+     * Segundo:
+     * preço falado.
+     */
+    const falado =
+      tentarPrecoFalado(
+        base,
+        i
+      );
+
 
     if (
-      /^R\$$/i.test(
-        texto
-      ) &&
-      base[i + 1] &&
-      ehNumeroPreco(
-        base[i + 1]
-          .palavra
-      )
+      falado
     ) {
 
-      resultado.push({
-
-        palavra:
-          `R$ ${base[i + 1].palavra}`,
-
-        inicio:
-          atual.inicio,
-
-        fim:
-          base[i + 1]
-            .fim,
-
-        preco:
-          true,
-
-      });
+      resultado.push(
+        falado.item
+      );
 
 
-      i += 1;
+      console.log(
+        "PREÇO FALADO:",
+        falado.item
+          .palavra
+      );
+
+
+      i =
+        falado
+          .ultimoIndice;
 
       continue;
     }
 
 
     /*
-    |--------------------------------------------------------------------------
-    | Caso:
-    |
-    | R + $ + 39,90
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      /^R$/i.test(
-        texto
-      ) &&
-      base[i + 1] &&
-      String(
-        base[i + 1]
-          .palavra
-      ).trim() === "$" &&
-      base[i + 2] &&
-      ehNumeroPreco(
-        base[i + 2]
-          .palavra
-      )
-    ) {
-
-      resultado.push({
-
-        palavra:
-          `R$ ${base[i + 2].palavra}`,
-
-        inicio:
-          atual.inicio,
-
-        fim:
-          base[i + 2]
-            .fim,
-
-        preco:
-          true,
-
-      });
-
-
-      i += 2;
-
-      continue;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Palavra normal
-    |--------------------------------------------------------------------------
-    */
-
+     * Palavra comum.
+     */
     resultado.push(
-      atual
+      base[i]
     );
 
   }
@@ -626,7 +1331,7 @@ function normalizarPalavras(
 
 /*
 |--------------------------------------------------------------------------
-| Tamanho automático
+| Fonte
 |--------------------------------------------------------------------------
 */
 
@@ -645,14 +1350,9 @@ function calcularFonte(
       .join(" ");
 
 
-  const caracteres =
+  const tamanho =
     texto.length;
 
-
-  /*
-   * Grupo contendo preço:
-   * usa um pouco menos.
-   */
 
   const temPreco =
     grupo.some(
@@ -661,75 +1361,72 @@ function calcularFonte(
     );
 
 
+  /*
+   * Com preço:
+   * mais conservador.
+   */
   if (
     temPreco
   ) {
 
     if (
-      caracteres <= 16
+      tamanho <= 15
     ) {
       return {
-        normal: 58,
-        destaque: 66,
+        normal: 54,
+        destaque: 62,
       };
     }
 
 
     if (
-      caracteres <= 22
+      tamanho <= 22
     ) {
       return {
-        normal: 52,
-        destaque: 60,
+        normal: 48,
+        destaque: 56,
       };
     }
 
 
     return {
-      normal: 46,
-      destaque: 54,
+      normal: 42,
+      destaque: 50,
     };
 
   }
 
 
   /*
-   * Legenda normal
+   * Normal.
    */
-
   if (
-    caracteres <= 15
+    tamanho <= 15
   ) {
-
     return {
       normal: 60,
       destaque: 68,
     };
-
   }
 
 
   if (
-    caracteres <= 22
+    tamanho <= 22
   ) {
-
     return {
       normal: 56,
       destaque: 64,
     };
-
   }
 
 
   if (
-    caracteres <= 29
+    tamanho <= 29
   ) {
-
     return {
       normal: 50,
       destaque: 58,
     };
-
   }
 
 
@@ -742,7 +1439,7 @@ function calcularFonte(
 
 /*
 |--------------------------------------------------------------------------
-| Criar legenda TikTok
+| Criar legenda
 |--------------------------------------------------------------------------
 */
 
@@ -755,9 +1452,6 @@ function criarLegendaTikTok(
     3;
 
 
-  /*
-   * Aqui o preço é mesclado.
-   */
   const validas =
     normalizarPalavras(
       palavras
@@ -777,25 +1471,15 @@ function criarLegendaTikTok(
 
 
   console.log(
-    "Palavras normalizadas:"
+    "Legenda normalizada:"
   );
 
 
-  validas.forEach(
-    item => {
-
-      if (
-        item.preco
-      ) {
-
-        console.log(
-          "PREÇO DETECTADO:",
-          item.palavra
-        );
-
-      }
-
-    }
+  console.log(
+    validas.map(
+      item =>
+        item.palavra
+    )
   );
 
 
@@ -819,18 +1503,11 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
     [];
 
 
-  /*
-  |--------------------------------------------------------------------------
-  | Grupos de 3
-  |--------------------------------------------------------------------------
-  */
-
   for (
-    let grupoInicio =
-      0;
+    let grupoInicio = 0;
 
     grupoInicio <
-    validas.length;
+      validas.length;
 
     grupoInicio +=
       palavrasPorGrupo
@@ -855,7 +1532,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       let j = 0;
 
       j <
-      grupo.length;
+        grupo.length;
 
       j++
     ) {
@@ -876,15 +1553,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
 
       if (
-        indiceGlobal +
-          1 <
+        indiceGlobal + 1 <
         validas.length
       ) {
 
         fimEvento =
           validas[
-            indiceGlobal +
-              1
+            indiceGlobal + 1
           ].inicio;
 
       } else {
@@ -906,12 +1581,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
       }
 
 
-      /*
-      |--------------------------------------------------------------------------
-      | Montar grupo
-      |--------------------------------------------------------------------------
-      */
-
       const textoGrupo =
         grupo
           .map(
@@ -928,36 +1597,9 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
                 );
 
 
-              /*
-               * Palavra atual.
-               */
               if (
-                posicao ===
-                j
+                posicao === j
               ) {
-
-                /*
-                 * Se for preço,
-                 * deixa ele amarelo inteiro.
-                 */
-                if (
-                  item.preco
-                ) {
-
-                  return (
-                    "{\\c&H0000FFFF&" +
-                    `\\fs${fonte.destaque}` +
-                    "\\bord6" +
-                    "}" +
-                    palavra +
-                    "{\\c&H00FFFFFF&" +
-                    `\\fs${fonte.normal}` +
-                    "\\bord5" +
-                    "}"
-                  );
-
-                }
-
 
                 return (
                   "{\\c&H0000FFFF&" +
@@ -979,12 +1621,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
           )
           .join(" ");
 
-
-      /*
-      |--------------------------------------------------------------------------
-      | Centro
-      |--------------------------------------------------------------------------
-      */
 
       const texto =
         "{\\an5" +
@@ -1022,12 +1658,6 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
     "Legenda criada."
   );
 
-
-  console.log(
-    "Eventos:",
-    eventos.length
-  );
-
 }
 
 
@@ -1060,19 +1690,16 @@ app.get(
         "placeholder-imagem-loop",
 
       legenda:
-        "tiktok-preco-protegido",
+        "tiktok-preco-inteligente",
 
       preco:
-        "R$ + valor unidos",
+        "numerico-ou-falado",
 
       palavras_por_bloco:
         3,
 
-      fonte:
-        "automatica",
-
       versao:
-        "7.2",
+        "7.3",
 
     });
 
@@ -1151,10 +1778,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             erro:
               "ID não informado",
-
           });
 
       }
@@ -1171,10 +1796,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             erro:
               "Nenhuma imagem informada",
-
           });
 
       }
@@ -1185,10 +1808,8 @@ app.post(
         return res
           .status(400)
           .json({
-
             erro:
               "Áudio não informado",
-
           });
 
       }
@@ -1230,7 +1851,7 @@ app.post(
 
 
       console.log(
-        "Duração áudio:",
+        "Duração:",
         duracaoAudio
       );
 
@@ -1420,7 +2041,6 @@ app.post(
 
 
       } else {
-
 
         fs.copyFileSync(
           videoBasePath,
